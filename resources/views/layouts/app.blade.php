@@ -1,36 +1,226 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" class="h-full bg-gray-50 dark:bg-gray-900">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <title>{{ $title ?? 'Dashboard' }} | TailAdmin - Laravel Tailwind CSS Admin Dashboard Template</title>
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <livewire:layout.navigation />
+    <!-- Scripts -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
+    @livewireScriptConfig
+    <!-- Theme Store -->
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+    <!-- Theme Store -->
+    <!-- <script>
+        document.addEventListener('alpine:init', () => {
 
-            <!-- Page Heading -->
-            @if (isset($header))
-                <header class="bg-white dark:bg-gray-800 shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endif
+            if (!Alpine.store('theme')) {
+                Alpine.store('theme', {
+                    init() {
+                        const savedTheme = localStorage.getItem('theme');
 
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
+                        this.theme = savedTheme === 'dark' ? 'dark' : 'light';
+                        this.updateTheme();
+                    },
+
+                    theme: 'light',
+                    resolvedTheme: 'light',
+
+                    set(value) {
+                        value = value === 'dark' ? 'dark' : 'light';
+
+                        this.theme = value;
+                        localStorage.setItem('theme', value);
+
+                        this.updateTheme();
+
+                        window.dispatchEvent(
+                            new CustomEvent('theme-changed', {
+                                detail: value
+                            })
+                        );
+                    },
+
+                    toggle() {
+                        this.set(
+                            this.resolvedTheme === 'dark'
+                                ? 'light'
+                                : 'dark'
+                        );
+                    },
+
+                    updateTheme() {
+                        const html = document.documentElement;
+                        const isDark = this.theme === 'dark';
+
+                        if (isDark) {
+                            html.classList.add('dark');
+                        } else {
+                            html.classList.remove('dark');
+                        }
+
+                        this.resolvedTheme = isDark ? 'dark' : 'light';
+
+                        html.setAttribute(
+                            'data-color-scheme',
+                            this.resolvedTheme
+                        );
+
+                        html.dataset.theme = this.resolvedTheme;
+                        html.style.colorScheme = this.resolvedTheme;
+
+                        if (document.body) {
+                            document.body.dataset.theme = this.resolvedTheme;
+                            document.body.style.colorScheme = this.resolvedTheme;
+                        }
+                    }
+                });
+            }
+
+
+            if (!Alpine.store('sidebar')) {
+                Alpine.store('sidebar', {
+
+                    isExpanded: true,
+                    isMobileOpen: false,
+                    isHovered: false,
+
+                    init() {
+                        const savedState =
+                            localStorage.getItem('sidebarExpanded');
+
+                        if (window.innerWidth >= 1280) {
+                            this.isExpanded = savedState !== 'false';
+                        } else {
+                            this.isExpanded = false;
+                        }
+
+                        this.isMobileOpen = false;
+
+                        window.addEventListener('resize', () => {
+                            this.handleResize();
+                        });
+                    },
+
+                    handleResize() {
+                        if (window.innerWidth < 1280) {
+
+                            if (this.isMobileOpen) {
+                                this.isMobileOpen = false;
+                            }
+
+                        } else {
+
+                            this.isMobileOpen = false;
+
+                            const savedState =
+                                localStorage.getItem('sidebarExpanded');
+
+                            this.isExpanded = savedState !== 'false';
+                        }
+                    },
+
+                    toggleExpanded() {
+                        this.isExpanded = !this.isExpanded;
+
+                        this.isMobileOpen = false;
+
+                        if (window.innerWidth >= 1280) {
+                            localStorage.setItem(
+                                'sidebarExpanded',
+                                this.isExpanded
+                            );
+                        }
+                    },
+
+                    toggleMobileOpen() {
+                        this.isMobileOpen = !this.isMobileOpen;
+                    },
+
+                    setMobileOpen(value) {
+                        this.isMobileOpen = value;
+                    },
+
+                    setHovered(value) {
+                        if (
+                            window.innerWidth >= 1280 &&
+                            !this.isExpanded
+                        ) {
+                            this.isHovered = value;
+                        }
+                    }
+                });
+            }
+
+        });
+    </script> -->
+
+    <!-- Apply RTL and dark mode immediately to prevent flash -->
+    <script>
+        (function() {
+            const savedDir = localStorage.getItem('dir');
+            const savedLocale = localStorage.getItem('locale');
+            if (savedDir) {
+                document.documentElement.setAttribute('dir', savedDir);
+            } else if (savedLocale === 'ar') {
+                document.documentElement.setAttribute('dir', 'rtl');
+            }
+            if (savedLocale) {
+                document.documentElement.setAttribute('lang', savedLocale);
+            }
+
+            const savedTheme = localStorage.getItem('theme');
+            const isDark = savedTheme === 'dark';
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.setAttribute('data-color-scheme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.setAttribute('data-color-scheme', 'light');
+            }
+        })();
+    </script>
+    
+
+</head>
+<body>
+
+    <div
+        class="min-h-screen xl:flex "
+        x-data
+        :class="{ 'sidebar-expanded': $store.sidebar.isExpanded || 
+        $store.sidebar.isHovered || $store.sidebar.isMobileOpen }">
+
+        @include('layouts.backdrop')
+        @include('layouts.sidebar')
+
+        <div class="flex-1 ml-0 ltr:xl:ml-[90px] rtl:xl:ml-0 rtl:xl:mr-[90px] [.sidebar-expanded_&]:ltr:xl:ml-[290px] [.sidebar-expanded_&]:rtl:xl:ml-0 [.sidebar-expanded_&]:rtl:xl:mr-[290px] transition-all duration-300 ease-in-out">
+
+            @include('layouts.app-header')
+
+            <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+                   {{-- Standard Blade pages --}}
+                    @yield('content')
+
+                    {{-- Livewire pages --}}
+                    {{ $slot ?? '' }}
+            </div>
+
         </div>
-    </body>
+
+    </div>
+
+
+</body>
+
+@stack('scripts')
+
 </html>

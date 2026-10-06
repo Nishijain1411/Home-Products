@@ -1,37 +1,25 @@
-<div>
-   <div class="p-6">
-    <div class="mb-6">
-        <h1 class="text-2xl font-semibold text-gray-900">
-            Admin Dashboard
-        </h1>
+@extends('layouts.app')
 
-        <p class="mt-1 text-sm text-gray-600">
-            Welcome to CustomCommerce administration.
-        </p>
+@section('content')
+  <div class="grid grid-cols-12 gap-4 md:gap-6">
+    <div class="col-span-12 space-y-6 xl:col-span-7">
+      <x-ecommerce.ecommerce-metrics />
+      <x-ecommerce.monthly-sale />
+    </div>
+    <div class="col-span-12 xl:col-span-5">
+        <x-ecommerce.monthly-target />
     </div>
 
-    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-
-        <div class="rounded-lg bg-white p-6 shadow">
-            <p class="text-sm text-gray-500">Products</p>
-            <p class="mt-2 text-3xl font-semibold">0</p>
-        </div>
-
-        <div class="rounded-lg bg-white p-6 shadow">
-            <p class="text-sm text-gray-500">Collections</p>
-            <p class="mt-2 text-3xl font-semibold">0</p>
-        </div>
-
-        <div class="rounded-lg bg-white p-6 shadow">
-            <p class="text-sm text-gray-500">Orders</p>
-            <p class="mt-2 text-3xl font-semibold">0</p>
-        </div>
-
-        <div class="rounded-lg bg-white p-6 shadow">
-            <p class="text-sm text-gray-500">Customers</p>
-            <p class="mt-2 text-3xl font-semibold">0</p>
-        </div>
-
+    <div class="col-span-12">
+      <x-ecommerce.statistics-chart />
     </div>
-</div>
-</div>
+
+    <div class="col-span-12 xl:col-span-5">
+      <x-ecommerce.customer-demographic />
+    </div>
+
+    <div class="col-span-12 xl:col-span-7">
+      <x-ecommerce.recent-orders />
+    </div>
+  </div>
+@endsection

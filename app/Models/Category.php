@@ -11,11 +11,19 @@ use App\Models\Product;
 class Category extends Model
 {
     protected $fillable = [
-        'name',
+       'name',
         'slug',
         'description',
-        'parent_id',
+        'image',
+        'collection_type',
         'is_active',
+        'sort_order',
+        'seo_title',
+        'seo_description',
+        'parent_id',
+    ];
+    protected $casts = [
+    'is_active' => 'boolean',
     ];
 
     public function products(): BelongsToMany

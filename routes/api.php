@@ -11,3 +11,19 @@ Route::get('/user', function (Request $request) {
 Route::prefix('v1/auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
 });
+
+Route::get('/debug-config', function () {
+    return response()->json([
+        'base_path' => base_path(),
+        'env_file' => app()->environmentFilePath(),
+
+        'config_database' => config('database.default'),
+        'config_session' => config('session.driver'),
+
+        'env_db_connection' => getenv('DB_CONNECTION'),
+        'env_session_driver' => getenv('SESSION_DRIVER'),
+
+        'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? null,
+        'php_sapi' => PHP_SAPI,
+    ]);
+});
