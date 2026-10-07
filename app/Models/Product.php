@@ -4,9 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Category;
 class Product extends Model
 {
+
+    protected $fillable = [
+        'name',
+        'slug',
+        'sku',
+        'description',
+        'price',
+        'compare_at_price',
+        'product_type',
+        'vendor',
+        'is_active',
+        'is_featured',
+        'sort_order',
+        'seo_title',
+        'seo_description',
+    ];
     
     public function categories(): BelongsToMany
     {
@@ -16,5 +33,10 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    public function options(): HasMany
+    {
+        return $this->hasMany(ProductOption::class);
     }
 }

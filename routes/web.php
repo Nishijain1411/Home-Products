@@ -3,7 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Categories\Index as CategoryIndex;   
-use App\Http\Controllers\Admin\CategoryController;
+use App\Livewire\Admin\Products\Index as ProductIndex;
+
 
 Route::view('/', 'welcome');
 
@@ -26,10 +27,11 @@ Route::middleware(['auth'])
     ->name('admin.')
     ->group(function () {
 
-        Route::get('/dashboard', \App\Livewire\Admin\Dashboard::class)->name('dashboard');
+            Route::get('/dashboard', Dashboard::class)->name('dashboard');
 
-            Route::get('/categories', CategoryIndex::class)
-                ->name('categories.index');
+            Route::get('/categories', CategoryIndex::class)->name('categories.index');
+            Route::get('/products', ProductIndex::class)->name('products.index');
+
 
             // Route::get('/categories/create', CategoryCreate::class)
             //     ->name('categories.create');
