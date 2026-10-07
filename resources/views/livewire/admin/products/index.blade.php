@@ -958,92 +958,46 @@
                                     <div class="flex items-center gap-1">
 
                                         {{-- Move Up --}}
-                                        <button
-                                            type="button"
-                                            wire:click="moveImageUp({{ $image['id'] }})"
+                                        <button type="button" wire:click="moveImageUp({{ $image['id'] }})"
                                             title="Move up"
-                                            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-md transition hover:bg-gray-100 hover:text-gray-900"
-                                        >
-                                            <svg
-                                                class="h-4 w-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M5 15l7-7 7 7"
-                                                />
+                                            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-md transition hover:bg-gray-100 hover:text-gray-900">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M5 15l7-7 7 7" />
                                             </svg>
                                         </button>
 
                                         {{-- Move Down --}}
-                                        <button
-                                            type="button"
-                                            wire:click="moveImageDown({{ $image['id'] }})"
+                                        <button type="button" wire:click="moveImageDown({{ $image['id'] }})"
                                             title="Move down"
-                                            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-md transition hover:bg-gray-100 hover:text-gray-900"
-                                        >
-                                            <svg
-                                                class="h-4 w-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M19 9l-7 7-7-7"
-                                                />
+                                            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-md transition hover:bg-gray-100 hover:text-gray-900">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 9l-7 7-7-7" />
                                             </svg>
                                         </button>
 
                                     </div>
 
                                     {{-- Set Primary --}}
-                                    <button
-                                        type="button"
-                                        wire:click="setPrimaryImage({{ $image['id'] }})"
+                                    <button type="button" wire:click="setPrimaryImage({{ $image['id'] }})"
                                         title="{{ $image['is_primary'] ? 'Primary Image' : 'Set as Primary' }}"
-                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-blue-50"
-                                    >
-                                        <svg
-                                            class="h-4 w-4 {{ $image['is_primary'] ? 'text-blue-600' : 'text-gray-500' }}"
+                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-md transition hover:bg-blue-50">
+                                        <svg class="h-4 w-4 {{ $image['is_primary'] ? 'text-blue-600' : 'text-gray-500' }}"
                                             fill="{{ $image['is_primary'] ? 'currentColor' : 'none' }}"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="1.8"
-                                                d="M12 3l2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"
-                                            />
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M12 3l2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z" />
                                         </svg>
                                     </button>
 
                                     {{-- Remove --}}
-                                    <button
-                                        type="button"
-                                        wire:click="removeExistingProductImage({{ $image['id'] }})"
+                                    <button type="button" wire:click="removeExistingProductImage({{ $image['id'] }})"
                                         title="Remove image"
-                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-red-500 shadow-md transition hover:bg-red-50 hover:text-red-600"
-                                    >
-                                        <svg
-                                            class="h-4 w-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="1.8"
-                                                d="M6 7h12M9 7V5h6v2m-7 0l.7 12h6.6L16 7M10 11v5m4-5v5"
-                                            />
+                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-red-500 shadow-md transition hover:bg-red-50 hover:text-red-600">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M6 7h12M9 7V5h6v2m-7 0l.7 12h6.6L16 7M10 11v5m4-5v5" />
                                         </svg>
                                     </button>
 
