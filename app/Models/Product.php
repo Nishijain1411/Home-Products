@@ -39,4 +39,9 @@ class Product extends Model
     {
         return $this->hasMany(ProductOption::class);
     }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('position');
+    }
 }

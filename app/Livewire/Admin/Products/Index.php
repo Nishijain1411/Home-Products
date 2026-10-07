@@ -9,21 +9,21 @@ use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Layout;
+use Illuminate\Support\Facades\DB;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
+use App\Models\ProductImage;
 
 #[Layout('layouts.app')]
 class Index extends Component
 {
-    use WithPagination;
+    use WithPagination , WithFileUploads;
 
     public $search = '';
-
     public $showModal = false;
     public $showDeleteModal = false;
-
     public $editingId = null;
     public $deleteId = null;
-
-    // Product fields
     public $name = '';
     public $slug = '';
     public $sku = '';
@@ -37,9 +37,12 @@ class Index extends Component
     public $sort_order = 0;
     public $seo_title = '';
     public $seo_description = '';
-
-    // Categories
+    public $productOptions = [];
     public $selectedCategories = [];
+    public $generatedVariants = [];
+    public $productImages = [];
+    public $newProductImages = [];
+    public $existingProductImages = [];
 
     protected function rules()
     {
@@ -115,6 +118,17 @@ class Index extends Component
                 'integer',
                 'exists:categories,id',
             ],
+
+            'productOptions' => ['array'],
+            'productOptions.*.name' => ['required', 'string', 'max:255'],
+            'productOptions.*.values' => ['array', 'min:1'],
+            'productOptions.*.values.*' => ['required', 'string', 'max:255'],
+            
+            'productImages.*' => [
+            'image',
+            'mimes:jpg,jpeg,png,webp',
+            'max:5120',
+            ],
         ];
     }
 
@@ -135,9 +149,15 @@ class Index extends Component
 
         $categories = Category::query()
             ->where('is_active', true)
+            ->whereNull('parent_id')
+            ->with([
+                'children' => function ($query) {
+                    $query->where('is_active', true)
+                        ->orderBy('name');
+                }
+            ])
             ->orderBy('name')
             ->get();
-
         return view(
             'livewire.admin.products.index',
             compact('products', 'categories')
@@ -171,9 +191,28 @@ class Index extends Component
         $this->seo_title = $product->seo_title;
         $this->seo_description = $product->seo_description;
 
-        $this->selectedCategories = $product
+        $this->productOptions = $product->options()
+            ->with('values')
+            ->orderBy('position')
+            ->get()
+            ->map(function ($option) {
+                return [
+                    'name' => $option->name,
+                    'values' => $option->values
+                        ->sortBy('position')
+                        ->pluck('value')
+                        ->values()
+                        ->toArray(),
+                ];
+            })
+            ->toArray();
+            $this->selectedCategories = $product
             ->categories
             ->pluck('id')
+            ->toArray();
+            $this->existingProductImages = $product->images()
+            ->orderBy('position')
+            ->get()
             ->toArray();
 
         $this->showModal = true;
@@ -183,34 +222,90 @@ class Index extends Component
     {
         $validated = $this->validate();
 
-        unset($validated['selectedCategories']);
+        DB::transaction(function () use ($validated) {
 
-        if ($this->editingId) {
+            $selectedCategories = $validated['selectedCategories'] ?? [];
 
-            $product = Product::findOrFail($this->editingId);
+            unset($validated['selectedCategories']);
+            unset($validated['productOptions']);
 
-            $product->update($validated);
+            if ($this->editingId) {
 
-            $product->categories()->sync($this->selectedCategories);
+                $product = Product::findOrFail($this->editingId);
 
-            session()->flash(
-                'success',
-                'Product updated successfully.'
-            );
+                $product->update($validated);
 
-        } else {
+            } else {
 
-            $product = Product::create($validated);
+                $product = Product::create($validated);
+            }
 
-            $product->categories()->sync($this->selectedCategories);
+            /*
+            * Save categories
+            */
+            $product->categories()->sync($selectedCategories);
 
-            session()->flash(
-                'success',
-                'Product created successfully.'
-            );
-        }
+            /*
+            * Save options and option values
+            */
+            $optionValueMap = $this->saveProductOptions($product);
+
+            /*
+            * Save generated variants
+            */
+            if (!empty($this->generatedVariants)) {
+                $this->saveProductVariants(
+                    $product,
+                    $optionValueMap
+                );
+            }
+            $this->saveProductImages($product);
+
+        });
+
+        session()->flash(
+            'success',
+            $this->editingId
+                ? 'Product updated successfully.'
+                : 'Product created successfully.'
+        );
 
         $this->closeModal();
+    }
+
+    private function saveProductOptions(Product $product)
+    {
+        $product->options()->delete();
+
+        $optionValueMap = [];
+
+        foreach ($this->productOptions as $optionIndex => $optionData) {
+
+            if (empty(trim($optionData['name'] ?? ''))) {
+                continue;
+            }
+
+            $option = $product->options()->create([
+                'name' => trim($optionData['name']),
+                'position' => $optionIndex,
+            ]);
+
+            foreach ($optionData['values'] as $valueIndex => $value) {
+
+                if (empty(trim($value))) {
+                    continue;
+                }
+
+                $optionValue = $option->values()->create([
+                    'value' => trim($value),
+                    'position' => $valueIndex,
+                ]);
+
+                $optionValueMap[$optionIndex][$valueIndex] = $optionValue->id;
+            }
+        }
+
+        return $optionValueMap;
     }
 
     public function toggleStatus($id)
@@ -256,7 +351,7 @@ class Index extends Component
         $this->showModal = false;
 
         $this->resetForm();
-
+        $this->productOptions = [];
         $this->resetValidation();
     }
 
@@ -275,6 +370,10 @@ class Index extends Component
             'seo_title',
             'seo_description',
             'selectedCategories',
+            'productOptions',
+            'generatedVariants',
+            'productImages',
+            'existingProductImages',
         ]);
 
         $this->is_active = true;
@@ -286,6 +385,310 @@ class Index extends Component
     {
         if (!$this->editingId) {
             $this->slug = Str::slug($value);
+        }
+    }
+
+    public function addOption()
+    {
+        $this->productOptions[] = [
+            'name' => '',
+            'values' => [''],
+        ];
+    }
+
+    public function removeOption($optionIndex)
+    {
+        unset($this->productOptions[$optionIndex]);
+
+        $this->productOptions = array_values($this->productOptions);
+    }
+
+    public function addOptionValue($optionIndex)
+    {
+        $this->productOptions[$optionIndex]['values'][] = '';
+    }
+
+    public function removeOptionValue($optionIndex, $valueIndex)
+    {
+        unset($this->productOptions[$optionIndex]['values'][$valueIndex]);
+
+        $this->productOptions[$optionIndex]['values'] =
+            array_values($this->productOptions[$optionIndex]['values']);
+    }
+
+    public function generateVariants()
+    {
+        $options = collect($this->productOptions)
+            ->map(function ($option, $optionIndex) {
+                return collect($option['values'] ?? [])
+                    ->filter(fn ($value) => trim($value) !== '')
+                    ->map(function ($value, $valueIndex) use ($optionIndex, $option) {
+                        return [
+                            'option_index' => $optionIndex,
+                            'value_index' => $valueIndex,
+                            'option_name' => $option['name'],
+                            'value' => trim($value),
+                        ];
+                    })
+                    ->values()
+                    ->toArray();
+            })
+            ->filter(fn ($values) => count($values) > 0)
+            ->values()
+            ->toArray();
+
+        if (empty($options)) {
+            $this->generatedVariants = [];
+            return;
+        }
+
+        $combinations = [[]];
+
+        foreach ($options as $optionValues) {
+
+            $newCombinations = [];
+
+            foreach ($combinations as $combination) {
+
+                foreach ($optionValues as $value) {
+
+                    $newCombinations[] = [
+                        ...$combination,
+                        $value,
+                    ];
+                }
+            }
+
+            $combinations = $newCombinations;
+        }
+
+        $this->generatedVariants = collect($combinations)
+            ->map(function ($combination) {
+
+                $title = collect($combination)
+                    ->pluck('value')
+                    ->implode(' / ');
+
+               return [
+                    'title' => $title,
+                    'option_values' => $combination,
+                    'sku' => '',
+                    'price' => $this->price,
+                    'compare_at_price' => $this->compare_at_price,
+                    'barcode' => '',
+                    'is_active' => true,
+                    'quantity' => 0,
+                    'reserved_quantity' => 0,
+                ];
+            })
+            ->toArray();
+    }
+
+    public function removeProductImage($index)
+    {
+        unset($this->productImages[$index]);
+
+        $this->productImages = array_values($this->productImages);
+    }
+
+    public function removeExistingProductImage($imageId)
+    {
+        $image = ProductImage::where('id', $imageId)
+            ->where('product_id', $this->editingId)
+            ->firstOrFail();
+
+        if (Storage::disk('public')->exists($image->path)) {
+            Storage::disk('public')->delete($image->path);
+        }
+
+        $image->delete();
+
+        $this->existingProductImages = ProductImage::where('product_id', $this->editingId)
+            ->orderBy('position')
+            ->get()
+            ->toArray();
+    }
+
+    public function updatedNewProductImages()
+    {
+        foreach ($this->newProductImages as $image) {
+            $this->productImages[] = $image;
+        }
+
+        $this->newProductImages = [];
+    }
+    public function setPrimaryImage($imageId)
+    {
+        $image = ProductImage::findOrFail($imageId);
+
+        ProductImage::where('product_id', $image->product_id)
+            ->update(['is_primary' => false]);
+
+        $image->update([
+            'is_primary' => true,
+        ]);
+
+        $this->existingProductImages = ProductImage::where('product_id', $image->product_id)
+            ->orderBy('position')
+            ->get()
+            ->toArray();
+    }
+    public function moveImageUp($imageId)
+    {
+        $image = ProductImage::where('id', $imageId)
+            ->where('product_id', $this->editingId)
+            ->firstOrFail();
+
+        $previousImage = ProductImage::where('product_id', $this->editingId)
+            ->where('position', '<', $image->position)
+            ->orderByDesc('position')
+            ->first();
+
+        if (!$previousImage) {
+            return;
+        }
+
+        $currentPosition = $image->position;
+
+        $image->update([
+            'position' => $previousImage->position,
+        ]);
+
+        $previousImage->update([
+            'position' => $currentPosition,
+        ]);
+
+        $this->refreshExistingProductImages();
+    }
+    public function moveImageDown($imageId)
+    {
+        $image = ProductImage::where('id', $imageId)
+            ->where('product_id', $this->editingId)
+            ->firstOrFail();
+
+        $nextImage = ProductImage::where('product_id', $this->editingId)
+            ->where('position', '>', $image->position)
+            ->orderBy('position')
+            ->first();
+
+        if (!$nextImage) {
+            return;
+        }
+
+        $currentPosition = $image->position;
+
+        $image->update([
+            'position' => $nextImage->position,
+        ]);
+
+        $nextImage->update([
+            'position' => $currentPosition,
+        ]);
+
+        $this->refreshExistingProductImages();
+    }
+    private function refreshExistingProductImages()
+    {
+        $this->existingProductImages = ProductImage::where('product_id', $this->editingId)
+            ->orderBy('position')
+            ->get()
+            ->toArray();
+    }
+    private function saveProductVariants(Product $product, array $optionValueMap)
+    {
+        /*
+        * For now, variants are recreated when the product
+        * is saved. We will improve this later so existing
+        * variant IDs can be preserved during edits.
+        */
+        $product->variants()->delete();
+
+        foreach ($this->generatedVariants as $variantData) {
+
+            $variant = $product->variants()->create([
+                'title' => $variantData['title'],
+
+                'sku' => !empty(trim($variantData['sku'] ?? ''))
+                    ? trim($variantData['sku'])
+                    : $this->generateVariantSku(
+                        $product,
+                        $variantData['title']
+                    ),
+
+                'price' => $variantData['price'] ?: null,
+
+                'compare_at_price' =>
+                    $variantData['compare_at_price'] ?: null,
+
+                'barcode' => !empty(trim($variantData['barcode'] ?? ''))
+                    ? trim($variantData['barcode'])
+                    : null,
+
+                'is_active' => $variantData['is_active'] ?? true,
+            ]);
+
+            /*
+            * Connect option values to this variant.
+            */
+            $optionValueIds = [];
+
+            foreach ($variantData['option_values'] as $optionValue) {
+
+                $optionIndex = $optionValue['option_index'];
+                $valueIndex = $optionValue['value_index'];
+
+                if (isset($optionValueMap[$optionIndex][$valueIndex])) {
+                    $optionValueIds[] =
+                        $optionValueMap[$optionIndex][$valueIndex];
+                }
+            }
+
+            if (!empty($optionValueIds)) {
+                $variant->optionValues()->sync($optionValueIds);
+            }
+
+            /*
+            * Create inventory record.
+            */
+            $variant->inventory()->create([
+                'quantity' => max(
+                    0,
+                    (int) ($variantData['quantity'] ?? 0)
+                ),
+
+                'reserved_quantity' => max(
+                    0,
+                    (int) ($variantData['reserved_quantity'] ?? 0)
+                ),
+            ]);
+        }
+    }
+    private function generateVariantSku(Product $product, string $title)
+    {
+        return $product->sku . '-' . strtoupper(
+            \Illuminate\Support\Str::slug($title, '-')
+        );
+    }
+    private function saveProductImages(Product $product)
+    {
+        if (empty($this->productImages)) {
+            return;
+        }
+
+        $existingCount = $product->images()->count();
+
+        foreach ($this->productImages as $index => $image) {
+            $path = $image->store(
+                'products/' . $product->id,
+                'public'
+            );
+
+            $product->images()->create([
+                'path' => $path,
+                'alt_text' => $product->name,
+                'position' => $existingCount + $index,
+                'is_primary' => ($existingCount + $index) === 0,
+            ]);
         }
     }
 }
