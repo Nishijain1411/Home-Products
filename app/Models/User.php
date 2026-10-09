@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use App\Models\Order;  
 /**
  * @property int $id
  * @property string $name
@@ -67,5 +68,9 @@ class User extends Authenticatable
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
             : $initials;
+    }
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'customer_id');
     }
 }

@@ -250,15 +250,33 @@ class Index extends Component
             */
             $optionValueMap = $this->saveProductOptions($product);
 
-            /*
-            * Save generated variants
+           /*
+            * Products without options still require a default variant.
             */
-            if (!empty($this->generatedVariants)) {
-                $this->saveProductVariants(
-                    $product,
-                    $optionValueMap
-                );
+            if (empty($this->generatedVariants)) {
+                $this->generateVariants();
             }
+
+            /*
+            * Save variants and inventory.
+            */
+            $this->saveProductVariants(
+                $product,
+                $optionValueMap
+            );/*
+            * Products without options still require a default variant.
+            */
+            if (empty($this->generatedVariants)) {
+                $this->generateVariants();
+            }
+
+            /*
+            * Save variants and inventory.
+            */
+            $this->saveProductVariants(
+                $product,
+                $optionValueMap
+            );
             $this->saveProductImages($product);
 
         });
@@ -437,8 +455,21 @@ class Index extends Component
             ->values()
             ->toArray();
 
-        if (empty($options)) {
-            $this->generatedVariants = [];
+       if (empty($options)) {
+            $this->generatedVariants = [
+                [
+                    'title' => 'Default Variant',
+                    'option_values' => [],
+                    'sku' => '',
+                    'price' => $this->price,
+                    'compare_at_price' => $this->compare_at_price,
+                    'barcode' => '',
+                    'is_active' => true,
+                    'quantity' => 0,
+                    'reserved_quantity' => 0,
+                ],
+            ];
+
             return;
         }
 
@@ -597,9 +628,7 @@ class Index extends Component
     private function saveProductVariants(Product $product, array $optionValueMap)
     {
         /*
-        * For now, variants are recreated when the product
-        * is saved. We will improve this later so existing
-        * variant IDs can be preserved during edits.
+        * Variants are recreated whenever the product is saved.
         */
         $product->variants()->delete();
 
@@ -632,20 +661,27 @@ class Index extends Component
             */
             $optionValueIds = [];
 
-            foreach ($variantData['option_values'] as $optionValue) {
+            foreach ($variantData['option_values'] ?? [] as $optionValue) {
 
-                $optionIndex = $optionValue['option_index'];
-                $valueIndex = $optionValue['value_index'];
+                $optionIndex = $optionValue['option_index'] ?? null;
+                $valueIndex = $optionValue['value_index'] ?? null;
 
-                if (isset($optionValueMap[$optionIndex][$valueIndex])) {
+                if (
+                    $optionIndex !== null &&
+                    $valueIndex !== null &&
+                    isset($optionValueMap[$optionIndex][$valueIndex])
+                ) {
                     $optionValueIds[] =
                         $optionValueMap[$optionIndex][$valueIndex];
                 }
             }
 
-            if (!empty($optionValueIds)) {
-                $variant->optionValues()->sync($optionValueIds);
-            }
+            /*
+            * Sync variant <-> option value relationship.
+            */
+            $variant->optionValues()->sync(
+                array_values(array_unique($optionValueIds))
+            );
 
             /*
             * Create inventory record.
