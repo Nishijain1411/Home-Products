@@ -181,12 +181,12 @@
                         </span>
                     </div>
 
-                    <button
-                        type="button"
-                        class="mt-6 w-full rounded-xl bg-gray-900 px-6 py-4 text-sm font-semibold text-white hover:bg-blue-600"
+                    <a
+                        href="{{ route('storefront.checkout') }}"
+                        class="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center font-semibold text-white hover:bg-blue-700"
                     >
                         Proceed to Checkout
-                    </button>
+                    </a>
 
                     <a
                         href="{{ route('storefront.shop') }}"

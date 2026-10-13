@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Orders;
 
 use App\Models\Order;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class Show extends Component
@@ -10,6 +11,14 @@ class Show extends Component
     public Order $order;
 
     public string $status = '';
+
+    private const ALLOWED_TRANSITIONS = [
+        'pending' => ['processing', 'cancelled'],
+        'processing' => ['shipped', 'cancelled'],
+        'shipped' => ['delivered'],
+        'delivered' => [],
+        'cancelled' => [],
+    ];
 
     public function mount(string $orderNumber): void
     {
@@ -32,6 +41,26 @@ class Show extends Component
                 'in:pending,processing,shipped,delivered,cancelled',
             ],
         ]);
+
+        $this->order->refresh();
+
+        $currentStatus = $this->order->status;
+
+        if ($this->status === $currentStatus) {
+            session()->flash('success', 'Order status is unchanged.');
+
+            return;
+        }
+
+        $allowedTransitions = self::ALLOWED_TRANSITIONS[$currentStatus] ?? [];
+
+        if (! in_array($this->status, $allowedTransitions, true)) {
+            $this->status = $currentStatus;
+
+            throw ValidationException::withMessages([
+                'status' => "Cannot change an order from {$currentStatus} to the requested status.",
+            ]);
+        }
 
         $this->order->update([
             'status' => $this->status,

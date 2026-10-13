@@ -5,10 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Category;
+
 class Product extends Model
 {
-
     protected $fillable = [
         'name',
         'slug',
@@ -24,7 +23,7 @@ class Product extends Model
         'seo_title',
         'seo_description',
     ];
-    
+
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class);

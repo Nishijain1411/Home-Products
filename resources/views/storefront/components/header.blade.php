@@ -40,6 +40,13 @@
                     Categories
                 </a>
 
+                @auth
+                    <a href="{{ route('storefront.orders.index') }}"
+                    class="text-sm font-medium text-gray-700 hover:text-blue-600">
+                        My Orders
+                    </a>
+                @endauth
+
                 <a
                     href="#"
                     class="text-sm font-medium text-gray-700 transition hover:text-blue-600"
@@ -108,7 +115,7 @@
 
                 {{-- Cart --}}
                 <a
-                    href="#"
+                    href="{{ route('storefront.cart') }}"
                     class="relative text-gray-600 transition hover:text-blue-600"
                     aria-label="Cart"
                 >

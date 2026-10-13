@@ -3,20 +3,23 @@
 namespace App\Livewire\Storefront;
 
 use App\Models\Product;
-use Livewire\Component;
 use App\Models\ProductVariant;
 use App\Services\CartService;
+use Livewire\Component;
 
 class ProductDetail extends Component
 {
     public Product $product;
+
     public ?int $selectedImage = null;
+
     public int $quantity = 1;
+
     public array $selectedOptions = [];
+
     public ?ProductVariant $selectedVariant = null;
 
-
-     public function mount(Product $product): void
+    public function mount(Product $product): void
     {
         abort_unless($product->is_active, 404);
 
@@ -32,7 +35,7 @@ class ProductDetail extends Component
 
         $this->selectedImage = $this->product->images->first()?->id;
 
-        /*Select first value of every option by default*/
+        /* Select first value of every option by default */
 
         foreach ($this->product->options as $option) {
             $firstValue = $option->values->first();
@@ -95,7 +98,7 @@ class ProductDetail extends Component
 
     public function incrementQuantity(): void
     {
-        if (!$this->selectedVariant) {
+        if (! $this->selectedVariant) {
             return;
         }
 
@@ -121,13 +124,13 @@ class ProductDetail extends Component
 
     public function addToCart(CartService $cartService): void
     {
-        if (!$this->selectedVariant) {
+        if (! $this->selectedVariant) {
             return;
         }
 
         $inventory = $this->selectedVariant->inventory;
 
-        if (!$inventory || $inventory->quantity < $this->quantity) {
+        if (! $inventory || $inventory->quantity < $this->quantity) {
             return;
         }
 

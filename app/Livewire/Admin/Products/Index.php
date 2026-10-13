@@ -2,46 +2,69 @@
 
 namespace App\Livewire\Admin\Products;
 
-use App\Models\Product;
 use App\Models\Category;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use Illuminate\Support\Facades\DB;
-use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Product;
 use App\Models\ProductImage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Layout;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 #[Layout('layouts.app')]
 class Index extends Component
 {
-    use WithPagination , WithFileUploads;
+    use WithFileUploads , WithPagination;
 
     public $search = '';
+
     public $showModal = false;
+
     public $showDeleteModal = false;
+
     public $editingId = null;
+
     public $deleteId = null;
+
     public $name = '';
+
     public $slug = '';
+
     public $sku = '';
+
     public $description = '';
+
     public $price = '';
+
     public $compare_at_price = '';
+
     public $product_type = '';
+
     public $vendor = '';
+
     public $is_active = true;
+
     public $is_featured = false;
+
     public $sort_order = 0;
+
     public $seo_title = '';
+
     public $seo_description = '';
+
     public $productOptions = [];
+
     public $selectedCategories = [];
+
     public $generatedVariants = [];
+
     public $productImages = [];
+
     public $newProductImages = [];
+
     public $existingProductImages = [];
 
     protected function rules()
@@ -123,11 +146,11 @@ class Index extends Component
             'productOptions.*.name' => ['required', 'string', 'max:255'],
             'productOptions.*.values' => ['array', 'min:1'],
             'productOptions.*.values.*' => ['required', 'string', 'max:255'],
-            
+
             'productImages.*' => [
-            'image',
-            'mimes:jpg,jpeg,png,webp',
-            'max:5120',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
             ],
         ];
     }
@@ -138,9 +161,9 @@ class Index extends Component
             ->when($this->search, function ($query) {
                 $query->where(function ($query) {
                     $query
-                        ->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%')
-                        ->orWhere('slug', 'like', '%' . $this->search . '%');
+                        ->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%')
+                        ->orWhere('slug', 'like', '%'.$this->search.'%');
                 });
             })
             ->with('categories')
@@ -154,10 +177,11 @@ class Index extends Component
                 'children' => function ($query) {
                     $query->where('is_active', true)
                         ->orderBy('name');
-                }
+                },
             ])
             ->orderBy('name')
             ->get();
+
         return view(
             'livewire.admin.products.index',
             compact('products', 'categories')
@@ -206,11 +230,11 @@ class Index extends Component
                 ];
             })
             ->toArray();
-            $this->selectedCategories = $product
+        $this->selectedCategories = $product
             ->categories
             ->pluck('id')
             ->toArray();
-            $this->existingProductImages = $product->images()
+        $this->existingProductImages = $product->images()
             ->orderBy('position')
             ->get()
             ->toArray();
@@ -250,9 +274,9 @@ class Index extends Component
             */
             $optionValueMap = $this->saveProductOptions($product);
 
-           /*
-            * Products without options still require a default variant.
-            */
+            /*
+             * Products without options still require a default variant.
+             */
             if (empty($this->generatedVariants)) {
                 $this->generateVariants();
             }
@@ -263,7 +287,7 @@ class Index extends Component
             $this->saveProductVariants(
                 $product,
                 $optionValueMap
-            );/*
+            ); /*
             * Products without options still require a default variant.
             */
             if (empty($this->generatedVariants)) {
@@ -331,7 +355,7 @@ class Index extends Component
         $product = Product::findOrFail($id);
 
         $product->update([
-            'is_active' => !$product->is_active,
+            'is_active' => ! $product->is_active,
         ]);
     }
 
@@ -401,7 +425,7 @@ class Index extends Component
 
     public function updatedName($value)
     {
-        if (!$this->editingId) {
+        if (! $this->editingId) {
             $this->slug = Str::slug($value);
         }
     }
@@ -455,7 +479,7 @@ class Index extends Component
             ->values()
             ->toArray();
 
-       if (empty($options)) {
+        if (empty($options)) {
             $this->generatedVariants = [
                 [
                     'title' => 'Default Variant',
@@ -500,7 +524,7 @@ class Index extends Component
                     ->pluck('value')
                     ->implode(' / ');
 
-               return [
+                return [
                     'title' => $title,
                     'option_values' => $combination,
                     'sku' => '',
@@ -548,6 +572,7 @@ class Index extends Component
 
         $this->newProductImages = [];
     }
+
     public function setPrimaryImage($imageId)
     {
         $image = ProductImage::findOrFail($imageId);
@@ -564,6 +589,7 @@ class Index extends Component
             ->get()
             ->toArray();
     }
+
     public function moveImageUp($imageId)
     {
         $image = ProductImage::where('id', $imageId)
@@ -575,7 +601,7 @@ class Index extends Component
             ->orderByDesc('position')
             ->first();
 
-        if (!$previousImage) {
+        if (! $previousImage) {
             return;
         }
 
@@ -591,6 +617,7 @@ class Index extends Component
 
         $this->refreshExistingProductImages();
     }
+
     public function moveImageDown($imageId)
     {
         $image = ProductImage::where('id', $imageId)
@@ -602,7 +629,7 @@ class Index extends Component
             ->orderBy('position')
             ->first();
 
-        if (!$nextImage) {
+        if (! $nextImage) {
             return;
         }
 
@@ -618,6 +645,7 @@ class Index extends Component
 
         $this->refreshExistingProductImages();
     }
+
     private function refreshExistingProductImages()
     {
         $this->existingProductImages = ProductImage::where('product_id', $this->editingId)
@@ -625,6 +653,7 @@ class Index extends Component
             ->get()
             ->toArray();
     }
+
     private function saveProductVariants(Product $product, array $optionValueMap)
     {
         /*
@@ -637,7 +666,7 @@ class Index extends Component
             $variant = $product->variants()->create([
                 'title' => $variantData['title'],
 
-                'sku' => !empty(trim($variantData['sku'] ?? ''))
+                'sku' => ! empty(trim($variantData['sku'] ?? ''))
                     ? trim($variantData['sku'])
                     : $this->generateVariantSku(
                         $product,
@@ -646,10 +675,9 @@ class Index extends Component
 
                 'price' => $variantData['price'] ?: null,
 
-                'compare_at_price' =>
-                    $variantData['compare_at_price'] ?: null,
+                'compare_at_price' => $variantData['compare_at_price'] ?: null,
 
-                'barcode' => !empty(trim($variantData['barcode'] ?? ''))
+                'barcode' => ! empty(trim($variantData['barcode'] ?? ''))
                     ? trim($variantData['barcode'])
                     : null,
 
@@ -699,12 +727,14 @@ class Index extends Component
             ]);
         }
     }
+
     private function generateVariantSku(Product $product, string $title)
     {
-        return $product->sku . '-' . strtoupper(
-            \Illuminate\Support\Str::slug($title, '-')
+        return $product->sku.'-'.strtoupper(
+            Str::slug($title, '-')
         );
     }
+
     private function saveProductImages(Product $product)
     {
         if (empty($this->productImages)) {
@@ -715,7 +745,7 @@ class Index extends Component
 
         foreach ($this->productImages as $index => $image) {
             $path = $image->store(
-                'products/' . $product->id,
+                'products/'.$product->id,
                 'public'
             );
 

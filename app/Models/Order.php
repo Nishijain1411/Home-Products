@@ -18,7 +18,11 @@ class Order extends Model
         'tax_amount',
         'total',
         'shipping_address',
-        'billing_address'
+        'billing_address',
+        'customer_email',
+        'customer_phone',
+        'customer_first_name',
+        'customer_last_name',
     ];
 
     protected $casts = [

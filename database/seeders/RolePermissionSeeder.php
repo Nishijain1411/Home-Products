@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -31,7 +31,7 @@ class RolePermissionSeeder extends Seeder
 
         // Super Administrator gets everything.
         Role::findByName('Super Administrator')->syncPermissions(
-            \Spatie\Permission\Models\Permission::all()
+            Permission::all()
         );
 
         // Store Administrator manages core store operations.

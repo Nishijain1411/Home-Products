@@ -1,9 +1,10 @@
 <?php
 
 namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
 
 class ProductOption extends Model
 {
@@ -22,5 +23,4 @@ class ProductOption extends Model
     {
         return $this->hasMany(ProductOptionValue::class);
     }
-
 }

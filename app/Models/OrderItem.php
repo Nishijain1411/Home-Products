@@ -16,13 +16,13 @@ class OrderItem extends Model
         'sku',
         'quantity',
         'unit_price',
-        'total'
+        'total',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
         'unit_price' => 'decimal:2',
-        'total' => 'decimal:2'
+        'total' => 'decimal:2',
     ];
 
     public function order(): BelongsTo
@@ -35,8 +35,8 @@ class OrderItem extends Model
         return $this->belongsTo(Product::class, 'product_id');
     }
 
-     public function variant(): BelongsTo
+    public function variant(): BelongsTo
     {
-        return $this->belongsTo(ProductVariant::class,'product_variant_id');
+        return $this->belongsTo(ProductVariant::class, 'product_variant_id');
     }
 }

@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\ProductVariant;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -36,7 +38,7 @@ class OrderService
                     'inventory',
                 ])->find($item['variant_id']);
 
-                if (!$variant) {
+                if (! $variant) {
                     throw new RuntimeException(
                         'A product in your cart is no longer available.'
                     );
@@ -44,7 +46,7 @@ class OrderService
 
                 $inventory = $variant->inventory;
 
-                if (!$inventory) {
+                if (! $inventory) {
                     throw new RuntimeException(
                         "Inventory is unavailable for {$variant->product->name}."
                     );
@@ -80,10 +82,46 @@ class OrderService
             $shippingAmount = 0;
             $taxAmount = 0;
             $total = $subtotal + $shippingAmount + $taxAmount;
+            $customerId = $customerData['customer_id'] ?? null;
 
+            if (! $customerId) {
+                $existingCustomer = User::where('email', $customerData['email'])->first();
+
+                if ($existingCustomer) {
+                    // Reuse only an existing customer account.
+                    if ($existingCustomer->hasRole('Customer')) {
+                        $customerId = $existingCustomer->id;
+                    }
+
+                    // Never link a guest order to an admin account
+                    // solely because the email address matches.
+                } else {
+                    $customer = User::create([
+                        'name' => trim(
+                            $customerData['first_name'].' '.
+                            $customerData['last_name']
+                        ),
+                        'email' => $customerData['email'],
+                        'password' => Hash::make(
+                            Str::random(48)
+                        ),
+                        'is_active' => true,
+                    ]);
+
+                    $customer->assignRole('Customer');
+
+                    $customerId = $customer->id;
+                }
+            }
             $order = Order::create([
                 'order_number' => $this->generateOrderNumber(),
-                'customer_id' => $customerData['customer_id'] ?? null,
+
+                'customer_id' => $customerId,
+                'customer_email' => $customerData['email'],
+                'customer_phone' => $customerData['phone'],
+                'customer_first_name' => $customerData['first_name'],
+                'customer_last_name' => $customerData['last_name'],
+
                 'status' => 'pending',
                 'payment_status' => 'pending',
                 'subtotal' => $subtotal,
@@ -130,7 +168,7 @@ class OrderService
     protected function generateOrderNumber(): string
     {
         do {
-            $number = 'ORD-' . now()->format('Ymd') . '-' . strtoupper(
+            $number = 'ORD-'.now()->format('Ymd').'-'.strtoupper(
                 Str::random(6)
             );
         } while (Order::where('order_number', $number)->exists());

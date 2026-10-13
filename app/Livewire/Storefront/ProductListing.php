@@ -2,26 +2,31 @@
 
 namespace App\Livewire\Storefront;
 
-use Livewire\Component;
 use App\Models\Category;
 use App\Models\Product;
+use Livewire\Component;
 use Livewire\WithPagination;
 
 class ProductListing extends Component
 {
     use WithPagination;
+
     public string $search = '';
+
     public ?int $category = null;
+
     public string $sort = 'latest';
 
     public function updatedSearch(): void
     {
         $this->resetPage();
     }
+
     public function updatedCategory(): void
     {
         $this->resetPage();
     }
+
     public function updatedSort(): void
     {
         $this->resetPage();
@@ -40,8 +45,8 @@ class ProductListing extends Component
             ->when($this->search !== '', function ($query) {
                 $query->where(function ($query) {
                     $query
-                        ->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%');
+                        ->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->category, function ($query) {

@@ -14,12 +14,12 @@ class ProductOptionValue extends Model
         'position',
     ];
 
-     public function option(): BelongsTo
+    public function option(): BelongsTo
     {
         return $this->belongsTo(ProductOption::class, 'product_option_id');
     }
 
-   public function variants(): BelongsToMany
+    public function variants(): BelongsToMany
     {
         return $this->belongsToMany(
             ProductVariant::class,

@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Storefront;
 
-use Livewire\Component;
 use App\Models\Order;
-
+use Livewire\Component;
 
 class OrderSuccess extends Component
 {
     public Order $order;
+
     public function mount(string $orderNumber): void
     {
         $this->order = Order::with('items')

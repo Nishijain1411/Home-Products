@@ -3,37 +3,47 @@
 namespace App\Livewire\Admin\Categories;
 
 use App\Models\Category;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
-use Livewire\Component;
-use Livewire\WithPagination;
-use Livewire\Attributes\Layout;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
-
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Layout;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 #[Layout('layouts.app')]
 class Index extends Component
 {
-    use WithPagination ,WithFileUploads;
+    use WithFileUploads ,WithPagination;
 
     public $search = '';
 
     public $showModal = false;
+
     public $showDeleteModal = false;
 
     public $editingId = null;
+
     public $deleteId = null;
 
     public $name = '';
+
     public $slug = '';
+
     public $description = '';
+
     public $collection_type = 'manual';
+
     public $is_active = true;
+
     public $image = null;
+
     public $sort_order = 0;
+
     public $seo_title = '';
+
     public $seo_description = '';
+
     public $parent_id = null;
 
     protected $queryString = [
@@ -47,7 +57,7 @@ class Index extends Component
 
     public function updatedName($value)
     {
-        if (!$this->editingId && empty($this->slug)) {
+        if (! $this->editingId && empty($this->slug)) {
             $this->slug = Str::slug($value);
         }
     }
@@ -186,7 +196,7 @@ class Index extends Component
         }
 
         $this->closeModal();
-    } 
+    }
 
     public function confirmDelete($id)
     {
@@ -225,7 +235,7 @@ class Index extends Component
         $category = Category::findOrFail($id);
 
         $category->update([
-            'is_active' => !$category->is_active,
+            'is_active' => ! $category->is_active,
         ]);
 
         session()->flash(
@@ -267,14 +277,13 @@ class Index extends Component
         $this->resetValidation();
     }
 
-  
     public function render()
     {
         $categories = Category::query()
             ->when($this->search, function ($query) {
                 $query->where(function ($query) {
-                    $query->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('slug', 'like', '%' . $this->search . '%');
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('slug', 'like', '%'.$this->search.'%');
                 });
             })
             ->with('parent')
@@ -294,6 +303,4 @@ class Index extends Component
             'parentCategories' => $parentCategories,
         ]);
     }
-
-    
 }

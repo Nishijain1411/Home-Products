@@ -14,7 +14,7 @@ class CartService
 
         foreach ($cart as $variantId => &$item) {
 
-            if (!isset($item['product_name'])) {
+            if (! isset($item['product_name'])) {
                 $variant = ProductVariant::with('product.images')
                     ->find($item['variant_id'] ?? $variantId);
 
@@ -72,7 +72,7 @@ class CartService
     {
         $cart = $this->get();
 
-        if (!isset($cart[$variantId])) {
+        if (! isset($cart[$variantId])) {
             return;
         }
 

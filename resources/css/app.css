@@ -1311,3 +1311,17 @@ pre code,
   text-align: left !important;
   unicode-bidi: isolate;
 }
+
+:root {
+    --store-primary: #2563eb;
+    --store-secondary: #111827;
+    --store-background: #ffffff;
+    --store-text: #111827;
+    --store-page-width: 1280px;
+}
+
+.storefront-container {
+    width: 100%;
+    max-width: var(--store-page-width, 1280px);
+    margin-inline: auto;
+}

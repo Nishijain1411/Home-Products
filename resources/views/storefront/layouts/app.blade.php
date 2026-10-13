@@ -10,8 +10,20 @@
 
     @stack('styles')
 </head>
-
-<body class="min-h-screen bg-white text-gray-900 antialiased">
+@php
+    $themeColors = $storefrontTheme['colors'] ?? [];
+    $themeLayout = $storefrontTheme['layout'] ?? [];
+@endphp
+<body class="min-h-screen antialiased"
+    style="
+        --store-primary: {{ $themeColors['primary'] ?? '#2563eb' }};
+        --store-secondary: {{ $themeColors['secondary'] ?? '#111827' }};
+        --store-background: {{ $themeColors['background'] ?? '#ffffff' }};
+        --store-text: {{ $themeColors['text'] ?? '#111827' }};
+        --store-page-width: {{ $themeLayout['page_width'] ?? '1280px' }};
+        background-color: var(--store-background);
+        color: var(--store-text);
+    ">
 
     @include('storefront.components.header')
 
@@ -26,4 +38,5 @@
     @stack('scripts')
 
 </body>
+
 </html>

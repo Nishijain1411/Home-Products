@@ -27,8 +27,8 @@ class Index extends Component
                 function ($query) {
                     $query->where(function ($query) {
                         $query
-                            ->where('name', 'like', '%' . $this->search . '%')
-                            ->orWhere('email', 'like', '%' . $this->search . '%');
+                            ->where('name', 'like', '%'.$this->search.'%')
+                            ->orWhere('email', 'like', '%'.$this->search.'%');
                     });
                 }
             )

@@ -1,34 +1,34 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Category;
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Models\ThemeSetting;
 
 class StorefrontController extends Controller
 {
     public function home()
     {
-        $categories = Category::query()
-            ->whereNull('parent_id')
-            ->orderBy('sort_order')
-            ->get();
+        $categories = Category::all();
 
-        $products = Product::query()
-            ->where('is_active', true)
-            ->where('is_featured', true)
-            ->with([
-                'images' => function ($query) {
-                    $query->orderBy('position');
-                }
-            ])
-            ->orderBy('sort_order')
+        $theme = ThemeSetting::query()
+            ->whereNotNull('published_settings')
+            ->latest('id')
+            ->first();
+
+        $storefrontTheme = $theme?->published_settings ?? [];
+        $productsCount = (int) ($storefrontTheme['sections']['products']['count'] ?? 8);
+
+        $products = Product::with('images')
+            ->latest()
+            ->take($productsCount > 0 ? $productsCount : 8)
             ->get();
 
         return view('storefront.home', [
             'categories' => $categories,
             'products' => $products,
+            'storefrontTheme' => $storefrontTheme,
         ]);
     }
-    
 }

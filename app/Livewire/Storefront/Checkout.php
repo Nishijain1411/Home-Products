@@ -1,24 +1,36 @@
 <?php
 
 namespace App\Livewire\Storefront;
+
 use App\Services\CartService;
-use Livewire\Component;
 use App\Services\OrderService;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
 
 class Checkout extends Component
 {
     public array $cart = [];
+
     public float $subtotal = 0;
+
     public string $firstName = '';
+
     public string $lastName = '';
+
     public string $email = '';
+
     public string $phone = '';
+
     public string $address = '';
+
     public string $city = '';
+
     public string $state = '';
+
     public string $postalCode = '';
+
     public string $country = 'India';
+
     public bool $billingSameAsShipping = true;
 
     public function mount(CartService $cartService): void
@@ -27,6 +39,18 @@ class Checkout extends Component
 
         if (empty($this->cart)) {
             $this->redirectRoute('storefront.cart');
+
+            return;
+        }
+
+        if (Auth::check()) {
+            $user = Auth::user();
+
+            $nameParts = preg_split('/\s+/', trim($user->name), 2);
+
+            $this->firstName = $nameParts[0] ?? '';
+            $this->lastName = $nameParts[1] ?? '';
+            $this->email = $user->email;
         }
     }
 
@@ -36,7 +60,7 @@ class Checkout extends Component
         $this->subtotal = $cartService->subtotal();
     }
 
-    public function placeOrder(OrderService $orderService,CartService $cartService): void
+    public function placeOrder(OrderService $orderService, CartService $cartService): void
     {
         $validated = $this->validate([
             'firstName' => ['required', 'string', 'max:100'],
@@ -55,6 +79,7 @@ class Checkout extends Component
 
         if (empty($cart)) {
             $this->redirectRoute('storefront.cart');
+
             return;
         }
 
@@ -109,8 +134,9 @@ class Checkout extends Component
             );
         }
     }
+
     public function render()
     {
-        return view('livewire.storefront.checkout')->layout('storefront.layouts.app');;
+        return view('livewire.storefront.checkout')->layout('storefront.layouts.app');
     }
 }

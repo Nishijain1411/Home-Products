@@ -17,7 +17,7 @@ return new class extends Migration
                 ->after('description')
                 ->constrained('categories')
                 ->nullOnDelete();
-    
+
         });
     }
 
@@ -27,7 +27,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('categories', function (Blueprint $table) {
-              $table->dropForeign(['parent_id']);
+            $table->dropForeign(['parent_id']);
             $table->dropColumn('parent_id');
         });
     }

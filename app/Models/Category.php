@@ -2,16 +2,15 @@
 
 namespace App\Models;
 
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use App\Models\Product;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class Category extends Model
 {
     protected $fillable = [
-       'name',
+        'name',
         'slug',
         'description',
         'image',
@@ -22,14 +21,16 @@ class Category extends Model
         'seo_description',
         'parent_id',
     ];
+
     protected $casts = [
-    'is_active' => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class);
     }
+
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Category::class, 'parent_id');
@@ -39,5 +40,4 @@ class Category extends Model
     {
         return $this->hasMany(Category::class, 'parent_id');
     }
-
 }
