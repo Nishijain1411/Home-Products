@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\StorefrontController;
+use App\Livewire\Admin\Categories\Create as CategoryCreate;
+use App\Livewire\Admin\Categories\Edit as CategoryEdit;
 use App\Livewire\Admin\Categories\Index as CategoryIndex;
 use App\Livewire\Admin\Customers\Index as CustomerIndex;
 use App\Livewire\Admin\Customers\Show as CustomerShow;
@@ -9,6 +11,8 @@ use App\Livewire\Admin\Inventory\History as InventoryHistory;
 use App\Livewire\Admin\Inventory\Index as InventoryIndex;
 use App\Livewire\Admin\Orders\Index as OrderIndex;
 use App\Livewire\Admin\Orders\Show as OrderShow;
+use App\Livewire\Admin\Products\Create as ProductCreate;
+use App\Livewire\Admin\Products\Edit as ProductEdit;
 use App\Livewire\Admin\Products\Index as ProductIndex;
 use App\Livewire\Admin\Settings\Index as SettingsIndex;
 use App\Livewire\Admin\ThemeSettings\Index as ThemeSettingsIndex;
@@ -26,13 +30,16 @@ require __DIR__.'/auth.php';
 
 Route::view('profile', 'profile')->middleware(['auth'])->name('profile');
 
+Route::get('/dashboard', function () {
+    return redirect()->route('admin.dashboard');
+})->middleware(['auth'])->name('dashboard');
+
 Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route('admin.dashboard');
     }
 
     return redirect()->route('login');
-
 });
 /*
     |--------------------------------------------------------------------------
@@ -64,7 +71,11 @@ Route::name('storefront.')->group(function () {
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/categories', CategoryIndex::class)->name('categories.index');
+    Route::get('/categories/create', CategoryCreate::class)->name('categories.create');
+    Route::get('/categories/{category}/edit', CategoryEdit::class)->name('categories.edit');
     Route::get('/products', ProductIndex::class)->name('products.index');
+    Route::get('/products/create', ProductCreate::class)->name('products.create');
+    Route::get('/products/{product}/edit', ProductEdit::class)->name('products.edit');
     // Route::get('/', function () {return view('storefront.home');})->name('storefront.home');
     Route::get('/orders', OrderIndex::class)->name('orders.index');
     Route::get('/orders/{orderNumber}', OrderShow::class)->name('orders.show');

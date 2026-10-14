@@ -359,4 +359,123 @@
 
     </div>
 
+    {{-- Customer Order History with Date Filter --}}
+    @if ($order->customer_id || !empty($order->shipping_address['email']))
+    <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 pb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Customer's Other Orders
+                </h2>
+                <p class="text-xs text-gray-500 mt-0.5">
+                    Other orders from {{ $order->customer->name ?? ($order->shipping_address['first_name'] ?? 'this customer') }} with date filters.
+                </p>
+            </div>
+
+            {{-- Date filters --}}
+            <div class="flex items-center gap-2">
+                <input
+                    type="date"
+                    wire:model.live="historyDateFrom"
+                    max="{{ $historyDateTo ?: '' }}"
+                    title="From Date"
+                    class="h-8 rounded-lg border border-gray-300 px-2 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                <span class="text-xs text-gray-400">to</span>
+                <input
+                    type="date"
+                    wire:model.live="historyDateTo"
+                    min="{{ $historyDateFrom ?: '' }}"
+                    title="To Date"
+                    class="h-8 rounded-lg border border-gray-300 px-2 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+
+                @if ($historyDateFrom || $historyDateTo)
+                    <button
+                        type="button"
+                        wire:click="clearHistoryFilters"
+                        class="text-xs font-medium text-red-600 hover:text-red-800 transition underline"
+                    >
+                        Reset
+                    </button>
+                @endif
+            </div>
+        </div>
+
+        @if ($relatedOrders->isNotEmpty())
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase tracking-wider text-gray-500">
+                            <th class="py-2.5 pr-4">Order</th>
+                            <th class="py-2.5 px-4">Date</th>
+                            <th class="py-2.5 px-4">Items</th>
+                            <th class="py-2.5 px-4">Total</th>
+                            <th class="py-2.5 px-4">Payment</th>
+                            <th class="py-2.5 px-4">Status</th>
+                            <th class="py-2.5 pl-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($relatedOrders as $otherOrder)
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-3 pr-4 font-semibold text-gray-900">
+                                    {{ $otherOrder->order_number }}
+                                </td>
+                                <td class="py-3 px-4 text-gray-600">
+                                    {{ format_date($otherOrder->created_at) }}
+                                </td>
+                                <td class="py-3 px-4 text-gray-600">
+                                    {{ $otherOrder->items_count ?? $otherOrder->items->count() }} items
+                                </td>
+                                <td class="py-3 px-4 font-medium text-gray-900">
+                                    {{ format_price($otherOrder->total) }}
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        @if ($otherOrder->payment_status === 'paid') bg-green-100 text-green-700
+                                        @elseif ($otherOrder->payment_status === 'failed') bg-red-100 text-red-700
+                                        @elseif ($otherOrder->payment_status === 'refunded') bg-purple-100 text-purple-700
+                                        @else bg-yellow-100 text-yellow-700 @endif">
+                                        {{ ucfirst($otherOrder->payment_status) }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        @if ($otherOrder->status === 'delivered') bg-green-100 text-green-700
+                                        @elseif ($otherOrder->status === 'cancelled') bg-red-100 text-red-700
+                                        @elseif ($otherOrder->status === 'shipped') bg-blue-100 text-blue-700
+                                        @elseif ($otherOrder->status === 'processing') bg-yellow-100 text-yellow-700
+                                        @else bg-gray-100 text-gray-700 @endif">
+                                        {{ ucfirst($otherOrder->status) }}
+                                    </span>
+                                </td>
+                                <td class="py-3 pl-4 text-right">
+                                    <a
+                                        href="{{ route('admin.orders.show', $otherOrder->order_number) }}"
+                                        class="font-medium text-blue-600 hover:text-blue-800"
+                                    >
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <p class="py-4 text-center text-xs text-gray-500">
+                @if ($historyDateFrom || $historyDateTo)
+                    No other orders found for this customer within the selected date range.
+                @else
+                    No other orders found for this customer.
+                @endif
+            </p>
+        @endif
+    </div>
+    @endif
+
 </div>

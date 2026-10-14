@@ -15,36 +15,32 @@
 
     </div>
 
-    {{-- Filters --}}
-    <div class="rounded-2xl border border-gray-200 bg-white p-5">
-
-        <div class="grid gap-4 md:grid-cols-3">
+    {{-- Filters (Compact Single Row) --}}
+    <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div class="flex flex-wrap items-center gap-2">
 
             {{-- Search --}}
-            <div>
-                <label class="text-sm font-medium text-gray-700">
-                    Search
-                </label>
-
+            <div class="relative flex-1 min-w-[200px]">
+                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </span>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
-                    placeholder="Order number, customer or email"
-                    class="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Search order #, customer, email, address..."
+                    class="h-9 w-full rounded-lg border border-gray-300 pl-8 pr-3 text-xs text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
             </div>
 
             {{-- Order Status --}}
-            <div>
-                <label class="text-sm font-medium text-gray-700">
-                    Order Status
-                </label>
-
+            <div class="w-32 sm:w-36">
                 <select
                     wire:model.live="status"
-                    class="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm"
+                    class="h-9 w-full rounded-lg border border-gray-300 px-2.5 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
-                    <option value="">All statuses</option>
+                    <option value="">All Statuses</option>
                     <option value="pending">Pending</option>
                     <option value="processing">Processing</option>
                     <option value="shipped">Shipped</option>
@@ -54,16 +50,12 @@
             </div>
 
             {{-- Payment Status --}}
-            <div>
-                <label class="text-sm font-medium text-gray-700">
-                    Payment Status
-                </label>
-
+            <div class="w-32 sm:w-36">
                 <select
                     wire:model.live="paymentStatus"
-                    class="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm"
+                    class="h-9 w-full rounded-lg border border-gray-300 px-2.5 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 >
-                    <option value="">All payment statuses</option>
+                    <option value="">All Payment</option>
                     <option value="pending">Pending</option>
                     <option value="paid">Paid</option>
                     <option value="failed">Failed</option>
@@ -71,8 +63,60 @@
                 </select>
             </div>
 
-        </div>
+            {{-- Date Range Preset --}}
+            <div class="w-32 sm:w-36">
+                <select
+                    wire:model.live="datePreset"
+                    class="h-9 w-full rounded-lg border border-gray-300 px-2.5 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                    <option value="">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="last_7_days">Last 7 Days</option>
+                    <option value="last_30_days">Last 30 Days</option>
+                    <option value="this_month">This Month</option>
+                    <option value="last_month">Last Month</option>
+                </select>
+            </div>
 
+            {{-- Date From --}}
+            <div class="w-32 sm:w-36">
+                <input
+                    type="date"
+                    wire:model.live="dateFrom"
+                    max="{{ $dateTo ?: '' }}"
+                    title="From Date"
+                    class="h-9 w-full rounded-lg border border-gray-300 px-2 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+            </div>
+
+            {{-- Date To --}}
+            <div class="w-32 sm:w-36">
+                <input
+                    type="date"
+                    wire:model.live="dateTo"
+                    min="{{ $dateFrom ?: '' }}"
+                    title="To Date"
+                    class="h-9 w-full rounded-lg border border-gray-300 px-2 text-xs text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+            </div>
+
+            {{-- Reset Button --}}
+            @if ($search || $status || $paymentStatus || $dateFrom || $dateTo || $datePreset)
+                <button
+                    type="button"
+                    wire:click="clearFilters"
+                    title="Reset all filters"
+                    class="h-9 inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-600 hover:bg-red-100 transition focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Reset</span>
+                </button>
+            @endif
+
+        </div>
     </div>
 
     {{-- Orders Table --}}

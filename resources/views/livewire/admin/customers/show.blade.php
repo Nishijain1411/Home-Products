@@ -111,14 +111,44 @@
     {{-- Order History --}}
     <div class="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
 
-        <div class="border-b border-gray-200 px-6 py-5 dark:border-gray-800">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
-                Order History
-            </h3>
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+                    Order History
+                </h3>
 
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Orders placed by this customer.
-            </p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Orders placed by this customer.
+                </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input
+                    type="date"
+                    wire:model.live="dateFrom"
+                    max="{{ $dateTo ?: '' }}"
+                    title="From Date"
+                    class="h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:text-white"
+                >
+                <span class="text-xs text-gray-400">to</span>
+                <input
+                    type="date"
+                    wire:model.live="dateTo"
+                    min="{{ $dateFrom ?: '' }}"
+                    title="To Date"
+                    class="h-8 rounded-lg border border-gray-300 bg-transparent px-2 text-xs text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:text-white"
+                >
+
+                @if ($dateFrom || $dateTo)
+                    <button
+                        type="button"
+                        wire:click="clearFilters"
+                        class="text-xs font-medium text-red-600 hover:text-red-800 transition underline"
+                    >
+                        Reset
+                    </button>
+                @endif
+            </div>
         </div>
 
 

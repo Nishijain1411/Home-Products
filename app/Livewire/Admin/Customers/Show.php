@@ -12,6 +12,32 @@ class Show extends Component
 
     public User $customer;
 
+    public string $dateFrom = '';
+
+    public string $dateTo = '';
+
+    protected $queryString = [
+        'dateFrom' => ['except' => ''],
+        'dateTo' => ['except' => ''],
+    ];
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+    }
+
     public function mount(int $customerId): void
     {
         $this->customer = User::withCount('orders')
@@ -23,6 +49,8 @@ class Show extends Component
     {
         $orders = $this->customer
             ->orders()
+            ->when($this->dateFrom !== '', fn ($q) => $q->whereDate('created_at', '>=', $this->dateFrom))
+            ->when($this->dateTo !== '', fn ($q) => $q->whereDate('created_at', '<=', $this->dateTo))
             ->latest()
             ->paginate(10);
 

@@ -12,6 +12,10 @@ class Show extends Component
 
     public string $status = '';
 
+    public string $historyDateFrom = '';
+
+    public string $historyDateTo = '';
+
     private const ALLOWED_TRANSITIONS = [
         'pending' => ['processing', 'cancelled'],
         'processing' => ['shipped', 'cancelled'],
@@ -19,6 +23,12 @@ class Show extends Component
         'delivered' => [],
         'cancelled' => [],
     ];
+
+    public function clearHistoryFilters(): void
+    {
+        $this->historyDateFrom = '';
+        $this->historyDateTo = '';
+    }
 
     public function mount(string $orderNumber): void
     {
@@ -76,7 +86,30 @@ class Show extends Component
 
     public function render()
     {
-        return view('livewire.admin.orders.show')
-            ->layout('layouts.app');
+        $relatedOrders = collect();
+
+        $customerEmail = $this->order->customer?->email ?? ($this->order->shipping_address['email'] ?? null);
+
+        if ($this->order->customer_id || $customerEmail) {
+            $relatedOrders = Order::query()
+                ->where('id', '!=', $this->order->id)
+                ->where(function ($q) use ($customerEmail) {
+                    if ($this->order->customer_id) {
+                        $q->where('customer_id', $this->order->customer_id);
+                    }
+                    if ($customerEmail) {
+                        $q->orWhere('shipping_address', 'like', '%'.$customerEmail.'%');
+                    }
+                })
+                ->when($this->historyDateFrom !== '', fn ($q) => $q->whereDate('created_at', '>=', $this->historyDateFrom))
+                ->when($this->historyDateTo !== '', fn ($q) => $q->whereDate('created_at', '<=', $this->historyDateTo))
+                ->latest('id')
+                ->take(10)
+                ->get();
+        }
+
+        return view('livewire.admin.orders.show', [
+            'relatedOrders' => $relatedOrders,
+        ])->layout('layouts.app');
     }
 }

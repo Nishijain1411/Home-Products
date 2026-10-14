@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Admin\Products\Create;
+use App\Livewire\Admin\Products\Edit;
 use App\Livewire\Admin\Products\Index as AdminProductIndex;
 use App\Livewire\Storefront\Checkout;
 use App\Livewire\Storefront\ProductDetail;
@@ -15,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(RefreshDatabase::class);
 
@@ -403,4 +406,228 @@ test('end to end: multi-variant product connects to storefront, option switching
 
     // Cart is cleared
     expect($cartService->count())->toBe(0);
+});
+
+test('can export products to csv with headers and correct product data', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $category = Category::create([
+        'name' => 'Smartphones',
+        'slug' => 'smartphones',
+        'is_active' => true,
+    ]);
+
+    $product = Product::create([
+        'name' => 'Flagship Phone',
+        'slug' => 'flagship-phone',
+        'sku' => 'PHONE-FLAGSHIP-01',
+        'price' => 69999.00,
+        'compare_at_price' => 79999.00,
+        'product_type' => 'Smartphone',
+        'vendor' => 'SuperTech',
+        'is_active' => true,
+        'is_featured' => true,
+        'description' => 'Top tier smartphone with AMOLED display',
+    ]);
+    $product->categories()->attach($category->id);
+
+    $variant = $product->variants()->create([
+        'title' => 'Default Variant',
+        'sku' => 'PHONE-FLAGSHIP-01',
+        'price' => 69999.00,
+        'is_active' => true,
+    ]);
+    $variant->inventory()->create([
+        'quantity' => 45,
+        'reserved_quantity' => 0,
+    ]);
+
+    $component = Livewire::test(AdminProductIndex::class);
+    $response = $component->instance()->export();
+
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $csvContent = ob_get_clean();
+
+    expect($csvContent)->toContain('SKU');
+    expect($csvContent)->toContain('Compare at Price');
+    expect($csvContent)->toContain('Flagship Phone');
+    expect($csvContent)->toContain('PHONE-FLAGSHIP-01');
+    expect($csvContent)->toContain('Smartphones');
+    expect($csvContent)->toContain('SuperTech');
+});
+
+test('can download sample csv template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $component = Livewire::test(AdminProductIndex::class);
+    $response = $component->instance()->exportSample();
+
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    ob_start();
+    $response->sendContent();
+    $csvContent = ob_get_clean();
+
+    expect($csvContent)->toContain('SKU');
+    expect($csvContent)->toContain('Compare at Price');
+    expect($csvContent)->toContain('Wireless Earbuds Pro');
+    expect($csvContent)->toContain('Classic Cotton T-Shirt');
+});
+
+test('can bulk import products from csv creating products, variants, inventory and categories', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $csv = "Name,Slug,SKU,Price,Compare at Price,Stock,Categories,Product Type,Vendor,Is Active,Is Featured,Description\n"
+        ."Mechanical Keyboard,mech-keyboard,KEY-MECH-01,2999.00,3499.00,30,Peripherals,Computer,KeyCo,1,1,RGB mechanical gaming keyboard\n"
+        ."Gaming Headset,,AUDIO-HS-01,1499.00,,15,\"Peripherals, Audio\",Audio,SoundMax,1,0,Over-ear stereo headset\n";
+
+    $file = UploadedFile::fake()->createWithContent('products.csv', $csv);
+
+    Livewire::test(AdminProductIndex::class)
+        ->set('importFile', $file)
+        ->call('import')
+        ->assertHasNoErrors()
+        ->assertSet('showImportModal', false)
+        ->assertSet('importErrors', [])
+        ->assertSet('successMessage', 'Successfully imported 2 products (2 created, 0 updated).')
+        ->assertSee('Successfully imported 2 products (2 created, 0 updated).')
+        ->assertSee('Operation Successful');
+
+    // Verify first product
+    $prod1 = Product::where('sku', 'KEY-MECH-01')->first();
+    expect($prod1)->not->toBeNull();
+    expect($prod1->name)->toBe('Mechanical Keyboard');
+    expect($prod1->slug)->toBe('mech-keyboard');
+    expect((float) $prod1->price)->toBe(2999.00);
+    expect((float) $prod1->compare_at_price)->toBe(3499.00);
+    expect($prod1->is_featured)->toBeTrue();
+    expect($prod1->categories->pluck('name')->toArray())->toContain('Peripherals');
+    expect($prod1->total_stock)->toBe(30);
+
+    // Verify second product with auto slug and multiple categories
+    $prod2 = Product::where('sku', 'AUDIO-HS-01')->first();
+    expect($prod2)->not->toBeNull();
+    expect($prod2->name)->toBe('Gaming Headset');
+    expect($prod2->slug)->toBe('gaming-headset');
+    expect((float) $prod2->price)->toBe(1499.00);
+    expect($prod2->compare_at_price)->toBeNull();
+    expect($prod2->categories->pluck('name')->toArray())->toContain('Peripherals');
+    expect($prod2->categories->pluck('name')->toArray())->toContain('Audio');
+    expect($prod2->total_stock)->toBe(15);
+});
+
+test('bulk import updates existing products matching sku and handles duplicate skus in csv', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $existing = Product::create([
+        'name' => 'Old Product Name',
+        'slug' => 'old-product-name',
+        'sku' => 'UPDATE-SKU-01',
+        'price' => 500.00,
+        'is_active' => true,
+    ]);
+    $variant = $existing->variants()->create([
+        'title' => 'Default Variant',
+        'sku' => 'UPDATE-SKU-01',
+        'price' => 500.00,
+        'is_active' => true,
+    ]);
+    $variant->inventory()->create([
+        'quantity' => 5,
+        'reserved_quantity' => 0,
+    ]);
+
+    // CSV updating existing product
+    $csv = "Name,Slug,SKU,Price,Compare at Price,Stock,Categories,Product Type,Vendor,Is Active,Is Featured,Description\n"
+        ."Updated Product Name,updated-product-name,UPDATE-SKU-01,750.00,900.00,50,New Category,Gadgets,NewVendor,1,0,Updated description\n";
+
+    $file = UploadedFile::fake()->createWithContent('products.csv', $csv);
+
+    Livewire::test(AdminProductIndex::class)
+        ->set('importFile', $file)
+        ->call('import')
+        ->assertHasNoErrors()
+        ->assertSet('showImportModal', false);
+
+    $existing->refresh();
+    expect($existing->name)->toBe('Updated Product Name');
+    expect((float) $existing->price)->toBe(750.00);
+    expect((float) $existing->compare_at_price)->toBe(900.00);
+    expect($existing->total_stock)->toBe(50);
+
+    // CSV with validation failure (missing name and invalid price)
+    $invalidCsv = "Name,Slug,SKU,Price,Compare at Price,Stock,Categories,Product Type,Vendor,Is Active,Is Featured,Description\n"
+        .",,BAD-SKU-01,invalid-price,,,Peripherals,,,,,\n";
+
+    $invalidFile = UploadedFile::fake()->createWithContent('invalid_products.csv', $invalidCsv);
+
+    Livewire::test(AdminProductIndex::class)
+        ->call('openImportModal')
+        ->set('importFile', $invalidFile)
+        ->call('import')
+        ->assertSet('showImportModal', true)
+        ->assertCount('importErrors', 2);
+
+    expect(Product::where('sku', 'BAD-SKU-01')->exists())->toBeFalse();
+});
+
+test('dedicated product create page renders and creates product with variant', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $this->get(route('admin.products.create'))
+        ->assertOk()
+        ->assertSee('Add Product');
+
+    Livewire::test(Create::class)
+        ->set('name', 'Mechanical Keyboard Pro')
+        ->set('slug', 'mechanical-keyboard-pro')
+        ->set('sku', 'MECH-KB-01')
+        ->set('price', '4999.00')
+        ->set('description', 'RGB Hot-swappable keyboard')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('admin.products.index'));
+
+    $product = Product::where('sku', 'MECH-KB-01')->first();
+    expect($product)->not->toBeNull();
+    expect($product->variants)->toHaveCount(1);
+    expect($product->variants->first()->title)->toBe('Default Variant');
+});
+
+test('dedicated product edit page renders and updates product details', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $product = Product::create([
+        'name' => 'Original Tablet',
+        'slug' => 'original-tablet',
+        'sku' => 'TABLET-01',
+        'price' => 19999.00,
+        'is_active' => true,
+    ]);
+
+    $this->get(route('admin.products.edit', $product->id))
+        ->assertOk()
+        ->assertSee('Original Tablet');
+
+    Livewire::test(Edit::class, ['product' => $product])
+        ->assertSet('name', 'Original Tablet')
+        ->assertSet('sku', 'TABLET-01')
+        ->set('name', 'Upgraded Tablet Pro')
+        ->set('price', '22999.00')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('admin.products.index'));
+
+    $product->refresh();
+    expect($product->name)->toBe('Upgraded Tablet Pro');
+    expect((float) $product->price)->toBe(22999.00);
 });

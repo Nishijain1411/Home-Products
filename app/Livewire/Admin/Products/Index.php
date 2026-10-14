@@ -14,6 +14,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('layouts.app')]
 class Index extends Component
@@ -25,6 +26,14 @@ class Index extends Component
     public $showModal = false;
 
     public $showDeleteModal = false;
+
+    public $showImportModal = false;
+
+    public $importFile = null;
+
+    public array $importErrors = [];
+
+    public ?string $successMessage = null;
 
     public $editingId = null;
 
@@ -349,12 +358,12 @@ class Index extends Component
             $this->saveProductImages($product);
         });
 
-        session()->flash(
-            'success',
-            $this->editingId
-                ? 'Product updated successfully.'
-                : 'Product created successfully.'
-        );
+        $msg = $this->editingId
+            ? 'Product updated successfully.'
+            : 'Product created successfully.';
+
+        $this->successMessage = $msg;
+        session()->flash('success', $msg);
 
         $this->closeModal();
     }
@@ -426,6 +435,7 @@ class Index extends Component
 
         $product->delete();
 
+        $this->successMessage = 'Product deleted successfully.';
         session()->flash(
             'success',
             'Product deleted successfully.'
@@ -860,5 +870,390 @@ class Index extends Component
 
         $this->productImages = [];
         $this->newProductImages = [];
+    }
+
+    public function openImportModal(): void
+    {
+        $this->reset(['importFile', 'importErrors', 'successMessage']);
+        $this->resetValidation();
+        $this->showImportModal = true;
+    }
+
+    public function closeImportModal(): void
+    {
+        $this->showImportModal = false;
+        $this->reset(['importFile', 'importErrors']);
+        $this->resetValidation();
+    }
+
+    public function dismissAlert(): void
+    {
+        $this->successMessage = null;
+    }
+
+    public function export(): StreamedResponse
+    {
+        $products = Product::query()
+            ->when($this->search, function ($query) {
+                $query->where(function ($query) {
+                    $query
+                        ->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('sku', 'like', '%'.$this->search.'%')
+                        ->orWhere('slug', 'like', '%'.$this->search.'%');
+                });
+            })
+            ->with(['categories', 'variants.inventory'])
+            ->latest()
+            ->get();
+
+        $filename = 'products-export-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($products) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Name',
+                'Slug',
+                'SKU',
+                'Price',
+                'Compare at Price',
+                'Stock',
+                'Categories',
+                'Product Type',
+                'Vendor',
+                'Is Active',
+                'Is Featured',
+                'Description',
+            ]);
+
+            foreach ($products as $product) {
+                $categoryNames = $product->categories->pluck('name')->implode(', ');
+                $totalStock = $product->variants->sum(fn ($variant) => (int) ($variant->inventory?->quantity ?? 0));
+
+                fputcsv($handle, [
+                    $product->name,
+                    $product->slug,
+                    $product->sku,
+                    $product->price,
+                    $product->compare_at_price ?? '',
+                    $totalStock,
+                    $categoryNames,
+                    $product->product_type ?? '',
+                    $product->vendor ?? '',
+                    $product->is_active ? '1' : '0',
+                    $product->is_featured ? '1' : '0',
+                    $product->description ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function exportSample(): StreamedResponse
+    {
+        $filename = 'products-sample-template.csv';
+
+        return response()->streamDownload(function () {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Name',
+                'Slug',
+                'SKU',
+                'Price',
+                'Compare at Price',
+                'Stock',
+                'Categories',
+                'Product Type',
+                'Vendor',
+                'Is Active',
+                'Is Featured',
+                'Description',
+            ]);
+
+            fputcsv($handle, [
+                'Wireless Earbuds Pro',
+                'wireless-earbuds-pro',
+                'EARBUD-PRO-001',
+                '1499.00',
+                '1999.00',
+                '50',
+                'Electronics, Audio',
+                'Audio',
+                'SoundMaster',
+                '1',
+                '1',
+                'Premium noise-cancelling bluetooth wireless earbuds with charging case.',
+            ]);
+
+            fputcsv($handle, [
+                'Classic Cotton T-Shirt',
+                'classic-cotton-tshirt',
+                'TSHIRT-BLK-001',
+                '499.00',
+                '799.00',
+                '100',
+                'Clothing, Apparel',
+                'Apparel',
+                'StyleHub',
+                '1',
+                '0',
+                '100% breathable combed organic cotton crewneck casual t-shirt.',
+            ]);
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function import(): void
+    {
+        $this->validate([
+            'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+        ]);
+
+        $path = $this->importFile->getRealPath();
+        if (! $path || ! file_exists($path)) {
+            $this->addError('importFile', 'Unable to read the uploaded CSV file.');
+
+            return;
+        }
+
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            $this->addError('importFile', 'Could not open the uploaded CSV file.');
+
+            return;
+        }
+
+        $bom = fread($handle, 3);
+        if ($bom !== "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+
+        $headerRow = fgetcsv($handle);
+        if (! $headerRow || empty(array_filter($headerRow))) {
+            fclose($handle);
+            $this->addError('importFile', 'The CSV file is empty or missing headers.');
+
+            return;
+        }
+
+        $colMap = [];
+        foreach ($headerRow as $index => $colName) {
+            $normalized = strtolower(trim($colName));
+            $normalized = str_replace([' ', '-', '_'], '', $normalized);
+            $colMap[$normalized] = $index;
+        }
+
+        $nameIdx = $colMap['name'] ?? $colMap['productname'] ?? null;
+        $skuIdx = $colMap['sku'] ?? null;
+        $priceIdx = $colMap['price'] ?? null;
+
+        if ($nameIdx === null || $skuIdx === null || $priceIdx === null) {
+            fclose($handle);
+            $this->addError('importFile', 'Missing required CSV headers: "Name", "SKU", and "Price" must be present.');
+
+            return;
+        }
+
+        $slugIdx = $colMap['slug'] ?? null;
+        $comparePriceIdx = $colMap['compareatprice'] ?? $colMap['compareprice'] ?? null;
+        $stockIdx = $colMap['stock'] ?? $colMap['quantity'] ?? $colMap['qty'] ?? null;
+        $categoriesIdx = $colMap['categories'] ?? $colMap['category'] ?? null;
+        $typeIdx = $colMap['producttype'] ?? $colMap['type'] ?? null;
+        $vendorIdx = $colMap['vendor'] ?? $colMap['brand'] ?? null;
+        $activeIdx = $colMap['isactive'] ?? $colMap['active'] ?? $colMap['status'] ?? null;
+        $featuredIdx = $colMap['isfeatured'] ?? $colMap['featured'] ?? null;
+        $descIdx = $colMap['description'] ?? $colMap['desc'] ?? null;
+
+        $rows = [];
+        $errors = [];
+        $rowNumber = 1;
+        $seenSkus = [];
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (empty(array_filter($row, fn ($val) => trim((string) $val) !== ''))) {
+                continue;
+            }
+
+            $name = trim($row[$nameIdx] ?? '');
+            $sku = trim($row[$skuIdx] ?? '');
+            $price = trim($row[$priceIdx] ?? '');
+
+            if ($name === '') {
+                $errors[] = "Row {$rowNumber}: Product Name is required.";
+            }
+
+            if ($sku === '') {
+                $errors[] = "Row {$rowNumber}: SKU is required.";
+            } elseif (isset($seenSkus[$sku])) {
+                $errors[] = "Row {$rowNumber}: Duplicate SKU '{$sku}' found in CSV (already present on row {$seenSkus[$sku]}).";
+            } else {
+                $seenSkus[$sku] = $rowNumber;
+            }
+
+            if ($price === '' || ! is_numeric($price) || (float) $price < 0) {
+                $errors[] = "Row {$rowNumber}: Price must be a valid positive number.";
+            }
+
+            $rawComparePrice = $comparePriceIdx !== null ? trim($row[$comparePriceIdx] ?? '') : '';
+            if ($rawComparePrice !== '' && (! is_numeric($rawComparePrice) || (float) $rawComparePrice < 0)) {
+                $errors[] = "Row {$rowNumber}: Compare at Price must be a valid positive number if provided.";
+            }
+
+            $rawStock = $stockIdx !== null ? trim($row[$stockIdx] ?? '') : '';
+            if ($rawStock !== '' && (! is_numeric($rawStock) || (int) $rawStock < 0)) {
+                $errors[] = "Row {$rowNumber}: Stock must be a valid positive integer if provided.";
+            }
+
+            $rows[] = [
+                'name' => $name,
+                'sku' => $sku,
+                'slug' => $slugIdx !== null ? trim($row[$slugIdx] ?? '') : '',
+                'price' => (float) $price,
+                'compare_at_price' => $rawComparePrice !== '' && is_numeric($rawComparePrice) ? (float) $rawComparePrice : null,
+                'stock' => $rawStock !== '' && is_numeric($rawStock) ? max(0, (int) $rawStock) : 0,
+                'categories' => $categoriesIdx !== null ? trim($row[$categoriesIdx] ?? '') : '',
+                'product_type' => $typeIdx !== null ? trim($row[$typeIdx] ?? '') : '',
+                'vendor' => $vendorIdx !== null ? trim($row[$vendorIdx] ?? '') : '',
+                'is_active' => $activeIdx !== null ? trim($row[$activeIdx] ?? '') : '1',
+                'is_featured' => $featuredIdx !== null ? trim($row[$featuredIdx] ?? '') : '0',
+                'description' => $descIdx !== null ? trim($row[$descIdx] ?? '') : '',
+            ];
+        }
+
+        fclose($handle);
+
+        if (empty($rows) && empty($errors)) {
+            $this->addError('importFile', 'The uploaded CSV file contains no product data rows.');
+
+            return;
+        }
+
+        if (! empty($errors)) {
+            $this->importErrors = $errors;
+
+            return;
+        }
+
+        $createdCount = 0;
+        $updatedCount = 0;
+
+        DB::transaction(function () use ($rows, &$createdCount, &$updatedCount) {
+            foreach ($rows as $rowData) {
+                $existingProduct = Product::where('sku', $rowData['sku'])->first();
+
+                $baseSlug = $rowData['slug'] !== '' ? Str::slug($rowData['slug']) : Str::slug($rowData['name']);
+                if ($baseSlug === '') {
+                    $baseSlug = 'product-'.strtolower(Str::random(6));
+                }
+
+                $slug = $baseSlug;
+                $slugConflict = Product::where('slug', $slug)
+                    ->when($existingProduct, fn ($q) => $q->where('id', '!=', $existingProduct->id))
+                    ->exists();
+
+                if ($slugConflict) {
+                    $slug = $baseSlug.'-'.strtolower(Str::random(5));
+                }
+
+                $isActive = in_array(strtolower((string) $rowData['is_active']), ['1', 'true', 'yes', 'active'], true);
+                $isFeatured = in_array(strtolower((string) $rowData['is_featured']), ['1', 'true', 'yes', 'featured'], true);
+
+                $payload = [
+                    'name' => $rowData['name'],
+                    'slug' => $slug,
+                    'sku' => $rowData['sku'],
+                    'price' => $rowData['price'],
+                    'compare_at_price' => $rowData['compare_at_price'],
+                    'description' => $rowData['description'] !== '' ? $rowData['description'] : null,
+                    'product_type' => $rowData['product_type'] !== '' ? $rowData['product_type'] : null,
+                    'vendor' => $rowData['vendor'] !== '' ? $rowData['vendor'] : null,
+                    'is_active' => $isActive,
+                    'is_featured' => $isFeatured,
+                ];
+
+                if ($existingProduct) {
+                    $existingProduct->update($payload);
+                    $product = $existingProduct;
+                    $updatedCount++;
+                } else {
+                    $product = Product::create($payload);
+                    $createdCount++;
+                }
+
+                // Categories
+                if ($rowData['categories'] !== '') {
+                    $catNames = array_filter(
+                        array_map('trim', preg_split('/[,|;]/', $rowData['categories'])),
+                        fn ($c) => $c !== ''
+                    );
+
+                    $categoryIds = [];
+                    foreach ($catNames as $catName) {
+                        $catSlug = Str::slug($catName);
+                        if ($catSlug !== '') {
+                            $category = Category::firstOrCreate(
+                                ['slug' => $catSlug],
+                                ['name' => $catName, 'is_active' => true]
+                            );
+                            $categoryIds[] = $category->id;
+                        }
+                    }
+
+                    if (! empty($categoryIds)) {
+                        $product->categories()->sync($categoryIds);
+                    }
+                }
+
+                // Default Variant & Inventory
+                $variant = $product->variants()->first();
+
+                if (! $variant) {
+                    $variant = $product->variants()->create([
+                        'title' => 'Default Variant',
+                        'sku' => $product->sku,
+                        'price' => $product->price,
+                        'compare_at_price' => $product->compare_at_price,
+                        'is_active' => $product->is_active,
+                    ]);
+                } elseif ($variant->title === 'Default Variant') {
+                    $variant->update([
+                        'sku' => $product->sku,
+                        'price' => $product->price,
+                        'compare_at_price' => $product->compare_at_price,
+                        'is_active' => $product->is_active,
+                    ]);
+                }
+
+                $stockQuantity = max(0, (int) $rowData['stock']);
+                if ($variant->inventory) {
+                    $variant->inventory->update([
+                        'quantity' => $stockQuantity,
+                    ]);
+                } else {
+                    $variant->inventory()->create([
+                        'quantity' => $stockQuantity,
+                        'reserved_quantity' => 0,
+                    ]);
+                }
+            }
+        });
+
+        $msg = 'Successfully imported '.($createdCount + $updatedCount)." products ({$createdCount} created, {$updatedCount} updated).";
+
+        $this->successMessage = $msg;
+        session()->flash('success', $msg);
+
+        $this->closeImportModal();
     }
 }
