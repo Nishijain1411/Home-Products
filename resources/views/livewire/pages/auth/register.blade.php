@@ -15,11 +15,25 @@ new #[Layout('layouts.guest')] class extends Component
     public string $password = '';
     public string $password_confirmation = '';
 
+    public function mount(): void
+    {
+        if (! store_setting('allow_customer_registration', true)) {
+            session()->flash('status', 'Customer registration is currently disabled.');
+            $this->redirectRoute('login');
+        }
+    }
+
     /**
      * Handle an incoming registration request.
      */
     public function register(): void
     {
+        if (! store_setting('allow_customer_registration', true)) {
+            $this->addError('email', 'Customer registration is currently disabled.');
+
+            return;
+        }
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],

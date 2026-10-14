@@ -56,13 +56,27 @@
     @mouseenter="if (!$store.sidebar.isExpanded) $store.sidebar.setHovered(true)"
     @mouseleave="$store.sidebar.setHovered(false)">
     <!-- Logo Section -->
+    @php
+        $adminLogo = store_logo();
+        $adminStoreName = store_name();
+    @endphp
     <div class="pt-8 pb-7 flex items-center gap-2" :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ? 'justify-center' : 'justify-between'">
-        <a href="/">
-            <div class="hidden [.sidebar-expanded_&]:block">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width="150" height="40" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width="150" height="40" />
-            </div>
-            <img class="block [.sidebar-expanded_&]:hidden" src="/images/logo/logo-icon.svg" alt="Logo" width="32" height="32" />
+        <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3">
+            @if ($adminLogo && Storage::disk('public')->exists($adminLogo))
+                <div class="hidden [.sidebar-expanded_&]:block">
+                    <img src="{{ Storage::disk('public')->url($adminLogo) }}" alt="{{ $adminStoreName }}" class="h-9 w-auto max-w-[170px] object-contain" />
+                </div>
+                <div class="block [.sidebar-expanded_&]:hidden flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm">
+                    {{ strtoupper(substr($adminStoreName, 0, 1)) ?: 'C' }}
+                </div>
+            @else
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm shadow-sm">
+                    {{ strtoupper(substr($adminStoreName, 0, 1)) ?: 'C' }}
+                </div>
+                <span class="hidden [.sidebar-expanded_&]:block font-bold text-base tracking-tight text-gray-900 dark:text-white truncate max-w-[180px]">
+                    {{ $adminStoreName }}
+                </span>
+            @endif
         </a>
     </div>
 

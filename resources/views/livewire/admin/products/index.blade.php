@@ -94,19 +94,39 @@
 
                         {{-- Product --}}
                         <td class="px-6 py-4">
-
-                            <div class="font-medium text-gray-900">
-                                {{ $product->name }}
+                            <div class="flex items-center gap-3">
+                                <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                    @php
+                                        $primaryImg = $product->images->firstWhere('is_primary', true) ?? $product->images->first();
+                                    @endphp
+                                    @if ($primaryImg)
+                                        <img src="{{ Storage::disk('public')->url($primaryImg->path) }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
+                                    @else
+                                        <svg class="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    @endif
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-medium text-gray-900 truncate">
+                                        {{ $product->name }}
+                                    </div>
+                                    @php
+                                        $lowStockLimit = (int) store_setting('low_stock_threshold', 5);
+                                    @endphp
+                                    <div class="text-xs flex items-center gap-1.5 text-gray-500">
+                                        <span>{{ $product->variants->count() }} {{ \Illuminate\Support\Str::plural('variant', $product->variants->count()) }}</span>
+                                        <span>·</span>
+                                        @if ($product->total_stock <= 0)
+                                            <span class="font-medium text-red-600">Out of Stock</span>
+                                        @elseif ($product->total_stock <= $lowStockLimit)
+                                            <span class="font-medium text-amber-600">Low Stock: {{ $product->total_stock }}</span>
+                                        @else
+                                            <span>Stock: {{ $product->total_stock }}</span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
-
-                            @if ($product->description)
-
-                            <div class="mt-1 max-w-sm truncate text-xs text-gray-500">
-                                {{ $product->description }}
-                            </div>
-
-                            @endif
-
                         </td>
 
 
@@ -121,14 +141,14 @@
                         {{-- Price --}}
                         <td class="whitespace-nowrap px-6 py-4">
 
-                            <div class="text-sm font-medium text-gray-900">
-                                {{ number_format($product->price, 2) }}
+                            <div class="text-sm font-semibold text-gray-900">
+                                {{ format_price($product->price) }}
                             </div>
 
                             @if ($product->compare_at_price)
 
                             <div class="text-xs text-gray-400 line-through">
-                                {{ number_format($product->compare_at_price, 2) }}
+                                {{ format_price($product->compare_at_price) }}
                             </div>
 
                             @endif
@@ -427,7 +447,7 @@
 
                                 <div class="relative">
                                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                                        $
+                                        {{ currency_symbol() }}
                                     </span>
 
                                     <input type="number" step="0.01" min="0" wire:model="price" placeholder="0.00"
@@ -447,7 +467,7 @@
 
                                 <div class="relative">
                                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                                        $
+                                        {{ currency_symbol() }}
                                     </span>
 
                                     <input type="number" step="0.01" min="0" wire:model="compare_at_price"

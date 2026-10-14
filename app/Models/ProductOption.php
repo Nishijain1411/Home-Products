@@ -14,6 +14,10 @@ class ProductOption extends Model
         'position',
     ];
 
+    protected $casts = [
+        'position' => 'integer',
+    ];
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -21,6 +25,6 @@ class ProductOption extends Model
 
     public function values(): HasMany
     {
-        return $this->hasMany(ProductOptionValue::class);
+        return $this->hasMany(ProductOptionValue::class)->orderBy('position');
     }
 }

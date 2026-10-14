@@ -38,7 +38,7 @@
                                 {{ $order->order_number }}
                             </h2>
                             <p class="mt-1 text-sm text-gray-500">
-                                Placed {{ $order->created_at->format('d M Y') }}
+                                Placed {{ format_date($order->created_at) }}
                             </p>
                         </div>
 
@@ -60,7 +60,7 @@
                         <div>
                             <p class="text-xs text-gray-500">Total</p>
                             <p class="mt-1 font-semibold text-gray-900">
-                                ₹{{ number_format((float) $order->total, 2) }}
+                                {{ format_price($order->total) }}
                             </p>
                             <p class="mt-1 text-xs text-gray-500">
                                 {{ $order->items_count }}

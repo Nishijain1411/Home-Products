@@ -13,6 +13,9 @@ class Order extends Model
         'customer_id',
         'status',
         'payment_status',
+        'payment_method',
+        'payment_reference',
+        'paid_at',
         'subtotal',
         'shipping_amount',
         'tax_amount',
@@ -32,7 +35,30 @@ class Order extends Model
         'total' => 'decimal:2',
         'shipping_address' => 'array',
         'billing_address' => 'array',
+        'paid_at' => 'datetime',
     ];
+
+    public function getPaymentMethodAttribute($value): ?string
+    {
+        return $value ?? ($this->billing_address['payment']['method'] ?? 'cod');
+    }
+
+    public function getPaymentReferenceAttribute($value): ?string
+    {
+        return $value ?? ($this->billing_address['payment']['reference'] ?? null);
+    }
+
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        $method = $this->payment_method;
+
+        return match ($method) {
+            'cod' => 'Cash on Delivery',
+            'card' => 'Credit / Debit Card',
+            'upi' => 'UPI',
+            default => ucfirst((string) $method),
+        };
+    }
 
     public function customer(): BelongsTo
     {

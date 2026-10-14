@@ -1,362 +1,386 @@
 <div>
 
     {{-- Breadcrumb --}}
-    <section class="border-b border-gray-200 bg-gray-50">
-        <div class="mx-auto max-w-7xl px-6 py-5 lg:px-8">
-
-            <nav class="text-sm text-gray-500">
-
-                <a href="{{ route('storefront.home') }}" class="hover:text-blue-600">
+    <section class="border-b border-gray-200 bg-gray-50/70">
+        <div class="mx-auto px-6 py-4 lg:px-8" style="max-width: var(--store-page-width);">
+            <nav class="flex items-center gap-2 text-xs text-gray-500">
+                <a href="{{ route('storefront.home') }}" class="transition hover:text-blue-600">
                     Home
                 </a>
-
-                <span class="mx-2">/</span>
-
-                <a href="{{ route('storefront.shop') }}" class="hover:text-blue-600">
-                    Shop
+                <span>/</span>
+                <a href="{{ route('storefront.products.index') }}" class="transition hover:text-blue-600">
+                    Products
                 </a>
-
-                <span class="mx-2">/</span>
-
-                <span class="text-gray-900">
+                @if ($product->categories->first())
+                    <span>/</span>
+                    <a
+                        href="{{ route('storefront.categories.show', $product->categories->first()->slug) }}"
+                        class="transition hover:text-blue-600"
+                    >
+                        {{ $product->categories->first()->name }}
+                    </a>
+                @endif
+                <span>/</span>
+                <span class="font-medium text-gray-900 truncate max-w-xs">
                     {{ $product->name }}
                 </span>
-
             </nav>
-
         </div>
     </section>
 
-
-    {{-- Product --}}
-    <section class="mx-auto max-w-7xl px-6 py-12 lg:px-8 lg:py-16">
-
+    {{-- Product Section --}}
+    <section class="mx-auto px-6 py-12 lg:px-8 lg:py-16" style="max-width: var(--store-page-width);">
         <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
 
-
-            {{-- ============================= --}}
-            {{-- Product Images --}}
-            {{-- ============================= --}}
-
+            {{-- Product Gallery --}}
             <div>
-
                 {{-- Main Image --}}
-                <div class="aspect-square overflow-hidden rounded-2xl bg-gray-100">
-
+                <div class="aspect-square overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
                     @php
-                    $selectedProductImage = $product->images
-                    ->firstWhere('id', $selectedImage)
-                    ?? $product->images->first();
+                        $selectedProductImage = $product->images->firstWhere('id', $selectedImage) ?? $product->images->first();
                     @endphp
 
                     @if ($selectedProductImage)
-
-                    <img src="{{ Storage::disk('public')->url($selectedProductImage->path) }}"
-                        alt="{{ $selectedProductImage->alt_text ?? $product->name }}"
-                        class="h-full w-full object-cover">
-
+                        <img
+                            src="{{ Storage::disk('public')->url($selectedProductImage->path) }}"
+                            alt="{{ $selectedProductImage->alt_text ?? $product->name }}"
+                            class="h-full w-full object-cover transition duration-300"
+                        >
                     @else
-
-                    <div class="flex h-full items-center justify-center text-gray-400">
-                        No Image Available
-                    </div>
-
+                        <div class="flex h-full items-center justify-center text-sm text-gray-400">
+                            No Image Available
+                        </div>
                     @endif
-
                 </div>
-
 
                 {{-- Thumbnails --}}
                 @if ($product->images->count() > 1)
-
-                <div class="mt-4 grid grid-cols-5 gap-3">
-
-                    @foreach ($product->images as $image)
-
-                    <button type="button" wire:click="selectImage({{ $image->id }})" class="aspect-square overflow-hidden rounded-lg border-2 transition
+                    <div class="mt-4 grid grid-cols-5 gap-3">
+                        @foreach ($product->images as $image)
+                            <button
+                                type="button"
+                                wire:click="selectImage({{ $image->id }})"
+                                class="aspect-square overflow-hidden rounded-xl border-2 transition hover:opacity-90
                                     {{ $selectedImage === $image->id
-                                        ? 'border-blue-600'
-                                        : 'border-transparent hover:border-gray-300' }}">
-
-                        <img src="{{ Storage::disk('public')->url($image->path) }}"
-                            alt="{{ $image->alt_text ?? $product->name }}" class="h-full w-full object-cover">
-
-                    </button>
-
-                    @endforeach
-
-                </div>
-
+                                        ? 'border-blue-600 ring-2 ring-blue-100'
+                                        : 'border-gray-200 hover:border-gray-300' }}"
+                                style="{{ $selectedImage === $image->id ? 'border-color: var(--store-primary);' : '' }}"
+                            >
+                                <img
+                                    src="{{ Storage::disk('public')->url($image->path) }}"
+                                    alt="{{ $image->alt_text ?? $product->name }}"
+                                    class="h-full w-full object-cover"
+                                >
+                            </button>
+                        @endforeach
+                    </div>
                 @endif
-
             </div>
 
-
-            {{-- ============================= --}}
             {{-- Product Information --}}
-            {{-- ============================= --}}
-
             <div>
-
-                {{-- Categories --}}
+                {{-- Category Badges --}}
                 @if ($product->categories->isNotEmpty())
-
-                <div class="mb-4 flex flex-wrap gap-2">
-
-                    @foreach ($product->categories as $category)
-
-                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600">
-                        {{ $category->name }}
-                    </span>
-
-                    @endforeach
-
-                </div>
-
+                    <div class="mb-3 flex flex-wrap gap-2">
+                        @foreach ($product->categories as $category)
+                            <a
+                                href="{{ route('storefront.categories.show', $category->slug) }}"
+                                class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                            >
+                                {{ $category->name }}
+                            </a>
+                        @endforeach
+                    </div>
                 @endif
-
 
                 {{-- Product Name --}}
                 <h1 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
                     {{ $product->name }}
                 </h1>
 
-
-                {{-- SKU --}}
-                <p class="mt-3 text-sm text-gray-500">
-                    SKU: {{ $product->sku }}
-                </p>
-
-
-                {{-- Price --}}
-                <div class="mt-6 flex items-center gap-3">
-
-                    <span class="text-2xl font-bold text-gray-900">
-                        ₹{{ number_format($product->price, 2) }}
-                    </span>
-
-                    @if ($product->compare_at_price)
-
-                    <span class="text-lg text-gray-400 line-through">
-                        ₹{{ number_format($product->compare_at_price, 2) }}
-                    </span>
-
-                    @if ($product->compare_at_price > $product->price)
-
-                    <span class="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
-                        Sale
-                    </span>
-
+                {{-- SKU & Vendor --}}
+                <div class="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                    <span>SKU: <strong class="text-gray-700">{{ $selectedVariant?->sku ?? $product->sku }}</strong></span>
+                    @if ($product->vendor)
+                        <span>Brand: <strong class="text-gray-700">{{ $product->vendor }}</strong></span>
                     @endif
-
-                    @endif
-
                 </div>
-                @if ($selectedVariant)
 
-                                @php
-                                    $stock = $selectedVariant->inventory?->quantity ?? 0;
-                                @endphp
+                {{-- Pricing --}}
+                @php
+                    $currentPrice = $selectedVariant ? $selectedVariant->effective_price : (float) $product->price;
+                    $currentComparePrice = $selectedVariant ? $selectedVariant->effective_compare_at_price : ($product->compare_at_price ? (float) $product->compare_at_price : null);
+                    $isDiscounted = $currentComparePrice && $currentComparePrice > $currentPrice;
+                @endphp
 
-                                @if ($stock > 0)
+                <div class="mt-5 flex items-center gap-3">
+                    <span class="text-3xl font-extrabold text-gray-900" style="color: var(--store-text);">
+                        {{ format_price($currentPrice) }}
+                    </span>
 
-                                    <p class="mt-3 text-sm font-medium text-green-600">
-                                        In stock
+                    @if ($isDiscounted)
+                        <span class="text-lg text-gray-400 line-through">
+                            {{ format_price($currentComparePrice) }}
+                        </span>
 
-                                        @if ($stock <= 10)
-                                            · Only {{ $stock }} left
-                                        @endif
-                                    </p>
+                        @php
+                            $discountPercentage = round((($currentComparePrice - $currentPrice) / $currentComparePrice) * 100);
+                        @endphp
+                        <span class="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                            Save {{ $discountPercentage }}%
+                        </span>
+                    @endif
+                </div>
 
-                                @else
+                {{-- Stock Status --}}
+                @php
+                    $stock = $selectedVariant ? $selectedVariant->available_stock : 0;
+                    $lowStockThreshold = (int) store_setting('low_stock_threshold', 5);
+                @endphp
 
-                                    <p class="mt-3 text-sm font-medium text-red-600">
-                                        Out of stock
-                                    </p>
-
+                <div class="mt-4">
+                    @if ($selectedVariant)
+                        @if ($stock > 0)
+                            <div class="flex items-center gap-2 text-sm font-medium text-green-700">
+                                <span class="h-2.5 w-2.5 rounded-full bg-green-600"></span>
+                                <span>In Stock</span>
+                                @if ($stock <= $lowStockThreshold)
+                                    <span class="text-xs text-amber-600 font-normal">
+                                        (Only {{ $stock }} left, order soon!)
+                                    </span>
                                 @endif
-
-                            @elseif ($product->options->isNotEmpty())
-
-                                <p class="mt-3 text-sm text-gray-500">
-                                    Please select product options.
-                                </p>
-
-                @endif
-
+                            </div>
+                        @else
+                            <div class="flex items-center gap-2 text-sm font-medium text-red-600">
+                                <span class="h-2.5 w-2.5 rounded-full bg-red-600"></span>
+                                <span>Out of Stock</span>
+                            </div>
+                        @endif
+                    @elseif ($product->options->isNotEmpty())
+                        <p class="text-sm text-gray-500">
+                            Please select product options to check availability.
+                        </p>
+                    @endif
+                </div>
 
                 {{-- Description --}}
                 @if ($product->description)
-
-                    <div class="mt-8 border-t border-gray-200 pt-8">
-
-                        <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-900">
-                            Product Description
+                    <div class="mt-6 border-t border-gray-200 pt-6">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500">
+                            Description
                         </h2>
-
-                        <div class="mt-4 text-sm leading-7 text-gray-600">
+                        <div class="mt-3 text-sm leading-6 text-gray-600">
                             {!! nl2br(e($product->description)) !!}
                         </div>
-
                     </div>
-
                 @endif
 
-
-                {{-- Options --}}
+                {{-- Product Options / Variants --}}
                 @if ($product->options->isNotEmpty())
-
-                    <div class="mt-8 space-y-6 border-t border-gray-200 pt-8">
-
+                    <div class="mt-6 space-y-5 border-t border-gray-200 pt-6">
                         @foreach ($product->options as $option)
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                                    {{ $option->name }}
+                                </label>
 
-                        <div>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($option->values as $value)
+                                        @php
+                                            $isSelected = ($selectedOptions[$option->id] ?? null) == $value->id;
+                                        @endphp
 
-                            <label class="mb-3 block text-sm font-semibold text-gray-900">
-                                {{ $option->name }}
-                            </label>
-
-                            <div class="flex flex-wrap gap-2">
-
-                                @foreach ($option->values as $value)
-
-                                @php
-                                $isSelected =
-                                ($selectedOptions[$option->id] ?? null) == $value->id;
-                                @endphp
-
-                                <button type="button" wire:click="selectOption({{ $option->id }}, {{ $value->id }})"
-                                    class="rounded-lg border px-4 py-2 text-sm font-medium transition
-                                                    {{ $isSelected
-                                                        ? 'border-blue-600 bg-blue-600 text-white'
-                                                        : 'border-gray-300 bg-white text-gray-700 hover:border-blue-600 hover:text-blue-600' }}">
-                                    {{ $value->value }}
-                                </button>
-
-                                @endforeach
-
+                                        <button
+                                            type="button"
+                                            wire:click="selectOption({{ $option->id }}, {{ $value->id }})"
+                                            class="rounded-lg border px-4 py-2 text-sm font-semibold transition
+                                                {{ $isSelected
+                                                    ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400' }}"
+                                            style="{{ $isSelected ? 'background-color: var(--store-primary); border-color: var(--store-primary);' : '' }}"
+                                        >
+                                            {{ $value->value }}
+                                        </button>
+                                    @endforeach
+                                </div>
                             </div>
-
-                        </div>
-
                         @endforeach
-
                     </div>
-
                 @endif
 
-
-                {{-- Quantity --}}
-                <div class="mt-8">
-
-                    <label class="mb-3 block text-sm font-semibold text-gray-900">
+                {{-- Quantity Selector --}}
+                <div class="mt-6 border-t border-gray-200 pt-6">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-700">
                         Quantity
                     </label>
 
-                    <div class="flex w-fit items-center overflow-hidden rounded-lg border border-gray-300">
+                    <div class="mt-2 flex items-center gap-3">
+                        <div class="flex items-center overflow-hidden rounded-lg border border-gray-300 bg-white">
+                            <button
+                                type="button"
+                                wire:click="decrementQuantity"
+                                @disabled($quantity <= 1)
+                                class="flex h-10 w-10 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:opacity-40"
+                            >
+                                −
+                            </button>
 
-                        <button type="button" wire:click="decrementQuantity"
-                            class="flex h-11 w-11 items-center justify-center text-gray-600 transition hover:bg-gray-100">
-                            −
-                        </button>
+                            <span class="flex h-10 w-12 items-center justify-center border-x border-gray-300 text-sm font-semibold text-gray-900">
+                                {{ $quantity }}
+                            </span>
 
-                        <span
-                            class="flex h-11 w-12 items-center justify-center border-x border-gray-300 text-sm font-medium">
-                            {{ $quantity }}
-                        </span>
+                            <button
+                                type="button"
+                                wire:click="incrementQuantity"
+                                @disabled($stock > 0 && $quantity >= $stock)
+                                class="flex h-10 w-10 items-center justify-center text-gray-600 transition hover:bg-gray-100 disabled:opacity-40"
+                            >
+                                +
+                            </button>
+                        </div>
 
-                        <button type="button" wire:click="incrementQuantity"
-                            class="flex h-11 w-11 items-center justify-center text-gray-600 transition hover:bg-gray-100">
-                            +
-                        </button>
-
+                        @if ($stock > 0 && $quantity >= $stock)
+                            <span class="text-xs text-amber-600">
+                                Maximum available quantity reached
+                            </span>
+                        @endif
                     </div>
-
                 </div>
 
+                {{-- Add To Cart Action --}}
+                @php
+                    $canAddToCart = $selectedVariant && $stock >= $quantity;
+                @endphp
 
-                {{-- Add To Cart --}}
-            @php
-                $stock = $selectedVariant?->inventory?->quantity ?? 0;
-                $canAddToCart = $selectedVariant && $stock >= $quantity;
-            @endphp
+                <div class="mt-8 space-y-3">
+                    <button
+                        type="button"
+                        wire:click="addToCart"
+                        wire:loading.attr="disabled"
+                        @disabled(! $canAddToCart)
+                        class="w-full rounded-xl px-6 py-4 text-sm font-semibold text-white transition shadow-md
+                            {{ $canAddToCart
+                                ? 'hover:opacity-90 active:scale-[0.99]'
+                                : 'cursor-not-allowed opacity-50 bg-gray-400' }}"
+                        style="{{ $canAddToCart ? 'background-color: var(--store-primary, #2563eb);' : '' }}"
+                    >
+                        <span wire:loading.remove wire:target="addToCart">
+                            @if (! $selectedVariant)
+                                Select Available Variant
+                            @elseif ($stock <= 0)
+                                Out of Stock
+                            @else
+                                Add to Cart — {{ format_price($currentPrice * $quantity) }}
+                            @endif
+                        </span>
 
-            <div class="mt-10 border-t border-gray-200 pt-8">
+                        <span wire:loading wire:target="addToCart" class="inline-flex items-center gap-2">
+                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Adding to Cart...
+                        </span>
+                    </button>
 
-                <button
-                    type="button"
-                    wire:click="addToCart"
-                    wire:loading.attr="disabled"
-                    @disabled(!$canAddToCart)
-                    class="w-full rounded-xl px-6 py-4 text-sm font-semibold transition
-                        {{ $canAddToCart
-                            ? 'bg-gray-900 text-white hover:bg-blue-600'
-                            : 'cursor-not-allowed bg-gray-200 text-gray-400' }}"
-                >
-                    <span wire:loading.remove wire:target="addToCart">
-                        @if (!$selectedVariant)
-                            Select Available Variant
-                        @elseif ($stock <= 0)
-                            Out of Stock
-                        @else
-                            Add to Cart
-                        @endif
-                    </span>
-
-                    <span wire:loading wire:target="addToCart">
-                        Adding...
-                    </span>
-                </button>
-
-                @if (session()->has('cart_success'))
-                    <div class="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                        {{ session('cart_success') }}
-                    </div>
-                @endif
-
-            </div>
-
-
-                {{-- Product Information --}}
-                <div class="mt-8 border-t border-gray-200 pt-8">
-
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-
-                        @if ($product->product_type)
-
-                        <div>
-                            <span class="block text-gray-500">
-                                Product Type
-                            </span>
-
-                            <span class="mt-1 block font-medium text-gray-900">
-                                {{ $product->product_type }}
-                            </span>
+                    @if (session()->has('cart_success'))
+                        <div class="flex items-center justify-between rounded-xl bg-green-50 p-4 text-sm text-green-800 border border-green-200">
+                            <div class="flex items-center gap-2">
+                                <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>{{ session('cart_success') }}</span>
+                            </div>
+                            <a
+                                href="{{ route('storefront.cart') }}"
+                                class="font-semibold text-green-700 underline hover:text-green-900"
+                            >
+                                View Cart &rarr;
+                            </a>
                         </div>
+                    @endif
 
-                        @endif
-
-                        @if ($product->vendor)
-
-                        <div>
-                            <span class="block text-gray-500">
-                                Vendor
-                            </span>
-
-                            <span class="mt-1 block font-medium text-gray-900">
-                                {{ $product->vendor }}
-                            </span>
+                    @if (session()->has('cart_error'))
+                        <div class="rounded-xl bg-red-50 p-4 text-sm text-red-700 border border-red-200">
+                            {{ session('cart_error') }}
                         </div>
-
-                        @endif
-
-                    </div>
-
+                    @endif
                 </div>
 
             </div>
 
         </div>
+
+        {{-- Related Products --}}
+        @if ($relatedProducts->isNotEmpty())
+            <div class="mt-20 border-t border-gray-200 pt-12">
+                <div class="mb-8 flex items-end justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight text-gray-900">
+                            You May Also Like
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Similar products from the same category
+                        </p>
+                    </div>
+
+                    <a
+                        href="{{ route('storefront.products.index') }}"
+                        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        style="color: var(--store-primary);"
+                    >
+                        Browse All &rarr;
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    @foreach ($relatedProducts as $rel)
+                        <article class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                            <a href="{{ route('storefront.products.show', $rel->slug) }}" class="block aspect-square overflow-hidden bg-gray-100">
+                                @if ($rel->images->first())
+                                    <img
+                                        src="{{ Storage::disk('public')->url($rel->images->first()->path) }}"
+                                        alt="{{ $rel->name }}"
+                                        class="h-full w-full object-cover transition duration-300 hover:scale-105"
+                                    >
+                                @else
+                                    <div class="flex h-full items-center justify-center text-xs text-gray-400">
+                                        No Image
+                                    </div>
+                                @endif
+                            </a>
+
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 truncate">
+                                    <a href="{{ route('storefront.products.show', $rel->slug) }}" class="hover:text-blue-600">
+                                        {{ $rel->name }}
+                                    </a>
+                                </h3>
+
+                                <div class="mt-1 flex items-center gap-2">
+                                    <span class="font-bold text-gray-900">
+                                        {{ format_price($rel->price) }}
+                                    </span>
+                                    @if ($rel->compare_at_price)
+                                        <span class="text-xs text-gray-400 line-through">
+                                            {{ format_price($rel->compare_at_price) }}
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <a
+                                    href="{{ route('storefront.products.show', $rel->slug) }}"
+                                    class="mt-3 block w-full rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90"
+                                    style="background-color: var(--store-secondary);"
+                                >
+                                    View Details
+                                </a>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
     </section>
 

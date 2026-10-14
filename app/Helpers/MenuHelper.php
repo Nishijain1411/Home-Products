@@ -70,6 +70,16 @@ class MenuHelper
                     ],
                 ],
             ],
+            [
+                'title' => 'Settings',
+                'items' => [
+                    [
+                        'name' => 'Global Settings',
+                        'path' => '/admin/settings',
+                        'icon' => 'settings',
+                    ],
+                ],
+            ],
         ];
     }
 

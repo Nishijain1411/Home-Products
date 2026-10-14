@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
+use App\Services\SettingService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -15,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        require_once app_path('Helpers/helpers.php');
     }
 
     /**
@@ -24,6 +27,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Blade::directive('price', fn ($expression) => "<?php echo format_price({$expression}); ?>");
+        Blade::directive('currency', fn () => '<?php echo currency_symbol(); ?>');
+        Blade::directive('date', fn ($expression) => "<?php echo format_date({$expression}); ?>");
+
+        if (Setting::isTableAvailable()) {
+            app(SettingService::class)->applyMailConfig();
+        }
     }
 
     /**

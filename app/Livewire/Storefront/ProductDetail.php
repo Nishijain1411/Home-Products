@@ -36,7 +36,6 @@ class ProductDetail extends Component
         $this->selectedImage = $this->product->images->first()?->id;
 
         /* Select first value of every option by default */
-
         foreach ($this->product->options as $option) {
             $firstValue = $option->values->first();
 
@@ -56,9 +55,7 @@ class ProductDetail extends Component
     public function selectOption(int $optionId, int $valueId): void
     {
         $this->selectedOptions[$optionId] = $valueId;
-
         $this->quantity = 1;
-
         $this->findSelectedVariant();
     }
 
@@ -84,7 +81,6 @@ class ProductDetail extends Component
 
         $this->selectedVariant = $this->product->variants
             ->first(function ($variant) use ($selectedValueIds) {
-
                 $variantValueIds = $variant->optionValues
                     ->pluck('id')
                     ->map(fn ($id) => (int) $id)
@@ -116,21 +112,20 @@ class ProductDetail extends Component
         }
     }
 
-    public function render()
-    {
-        return view('livewire.storefront.product-detail')
-            ->layout('storefront.layouts.app');
-    }
-
     public function addToCart(CartService $cartService): void
     {
         if (! $this->selectedVariant) {
+            session()->flash('cart_error', 'Please select an available variant combination.');
+
             return;
         }
 
         $inventory = $this->selectedVariant->inventory;
+        $availableQuantity = $inventory?->quantity ?? 0;
 
-        if (! $inventory || $inventory->quantity < $this->quantity) {
+        if ($availableQuantity < $this->quantity) {
+            session()->flash('cart_error', 'Sorry, the requested quantity is not available in stock.');
+
             return;
         }
 
@@ -139,9 +134,31 @@ class ProductDetail extends Component
             $this->quantity
         );
 
+        $this->dispatch('cart-updated');
+
         session()->flash(
             'cart_success',
-            'Product added to cart successfully.'
+            "Added {$this->quantity} × {$this->product->name} to your cart!"
         );
+    }
+
+    public function render()
+    {
+        $categoryIds = $this->product->categories->pluck('id');
+
+        $relatedProducts = Product::query()
+            ->where('is_active', true)
+            ->where('id', '!=', $this->product->id)
+            ->when($categoryIds->isNotEmpty(), function ($query) use ($categoryIds) {
+                $query->whereHas('categories', fn ($q) => $q->whereIn('categories.id', $categoryIds));
+            })
+            ->with(['images' => fn ($q) => $q->orderBy('position')])
+            ->latest('id')
+            ->take(4)
+            ->get();
+
+        return view('livewire.storefront.product-detail', [
+            'relatedProducts' => $relatedProducts,
+        ])->layout('storefront.layouts.app');
     }
 }

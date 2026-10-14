@@ -7,6 +7,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -16,13 +17,15 @@ class OrderService
         array $customerData,
         array $shippingAddress,
         array $billingAddress,
-        array $cart
+        array $cart,
+        array $paymentData = []
     ): Order {
-        return DB::transaction(function () use (
+        $order = DB::transaction(function () use (
             $customerData,
             $shippingAddress,
             $billingAddress,
-            $cart
+            $cart,
+            $paymentData
         ) {
             if (empty($cart)) {
                 throw new RuntimeException('Cart is empty.');
@@ -66,7 +69,7 @@ class OrderService
                     );
                 }
 
-                $unitPrice = (float) $variant->price;
+                $unitPrice = (float) ($variant->effective_price ?? $variant->price ?? $variant->product->price);
                 $lineTotal = $unitPrice * $quantity;
 
                 $subtotal += $lineTotal;
@@ -79,9 +82,11 @@ class OrderService
                 ];
             }
 
-            $shippingAmount = 0;
-            $taxAmount = 0;
-            $total = $subtotal + $shippingAmount + $taxAmount;
+            $settingService = app(SettingService::class);
+            $totals = $settingService->calculateTotals($subtotal);
+            $shippingAmount = $totals['shipping'];
+            $taxAmount = $totals['tax'];
+            $total = $totals['total'];
             $customerId = $customerData['customer_id'] ?? null;
 
             if (! $customerId) {
@@ -113,7 +118,22 @@ class OrderService
                     $customerId = $customer->id;
                 }
             }
-            $order = Order::create([
+            $paymentMethod = $paymentData['method'] ?? 'cod';
+            $paymentStatus = $paymentData['status'] ?? 'pending';
+            $paymentReference = $paymentData['reference'] ?? null;
+            $paidAt = $paymentData['paid_at'] ?? null;
+
+            $billingAddress['payment'] = [
+                'method' => $paymentMethod,
+                'status' => $paymentStatus,
+                'reference' => $paymentReference,
+                'paid_at' => $paidAt ? (is_string($paidAt) ? $paidAt : (method_exists($paidAt, 'toDateTimeString') ? $paidAt->toDateTimeString() : (string) $paidAt)) : null,
+                'card_last4' => $paymentData['card_last4'] ?? null,
+                'card_name' => $paymentData['card_name'] ?? null,
+                'upi_id' => $paymentData['upi_id'] ?? null,
+            ];
+
+            $orderAttributes = [
                 'order_number' => $this->generateOrderNumber(),
 
                 'customer_id' => $customerId,
@@ -123,14 +143,22 @@ class OrderService
                 'customer_last_name' => $customerData['last_name'],
 
                 'status' => 'pending',
-                'payment_status' => 'pending',
+                'payment_status' => $paymentStatus,
                 'subtotal' => $subtotal,
                 'shipping_amount' => $shippingAmount,
                 'tax_amount' => $taxAmount,
                 'total' => $total,
                 'shipping_address' => $shippingAddress,
                 'billing_address' => $billingAddress,
-            ]);
+            ];
+
+            if (Schema::hasColumn('orders', 'payment_method')) {
+                $orderAttributes['payment_method'] = $paymentMethod;
+                $orderAttributes['payment_reference'] = $paymentReference;
+                $orderAttributes['paid_at'] = $paidAt;
+            }
+
+            $order = Order::create($orderAttributes);
 
             foreach ($items as $item) {
 
@@ -163,13 +191,34 @@ class OrderService
 
             return $order;
         });
+
+        // Trigger order notifications and stock checks safely outside the database transaction
+        try {
+            $settingService = app(SettingService::class);
+            $settingService->notifyOrderPlaced($order);
+
+            foreach ($cart as $item) {
+                $variant = ProductVariant::find($item['variant_id']);
+                if ($variant) {
+                    $settingService->checkAndNotifyLowStock($variant);
+                }
+            }
+        } catch (\Throwable) {
+            // Silently avoid interrupting successful order placement
+        }
+
+        return $order;
     }
 
     protected function generateOrderNumber(): string
     {
+        $settingService = app(SettingService::class);
+        $prefix = (string) $settingService->get('order_number_prefix', 'ORD-');
+        $digits = max(4, min(12, (int) $settingService->get('order_number_digits', 6)));
+
         do {
-            $number = 'ORD-'.now()->format('Ymd').'-'.strtoupper(
-                Str::random(6)
+            $number = $prefix.now()->format('Ymd').'-'.strtoupper(
+                Str::random($digits)
             );
         } while (Order::where('order_number', $number)->exists());
 

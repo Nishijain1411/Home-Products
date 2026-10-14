@@ -10,6 +10,7 @@ use App\Livewire\Admin\Inventory\Index as InventoryIndex;
 use App\Livewire\Admin\Orders\Index as OrderIndex;
 use App\Livewire\Admin\Orders\Show as OrderShow;
 use App\Livewire\Admin\Products\Index as ProductIndex;
+use App\Livewire\Admin\Settings\Index as SettingsIndex;
 use App\Livewire\Admin\ThemeSettings\Index as ThemeSettingsIndex;
 use App\Livewire\Storefront\Cart;
 use App\Livewire\Storefront\Checkout;
@@ -42,7 +43,9 @@ Route::get('/', function () {
 
 Route::name('storefront.')->group(function () {
     Route::get('/storefront/home', [StorefrontController::class, 'home'])->name('home');
+    Route::get('/storefront/products', ProductListing::class)->name('products.index');
     Route::get('/storefront/shop', ProductListing::class)->name('shop');
+    Route::get('/storefront/categories/{category:slug}', ProductListing::class)->name('categories.show');
     Route::get('/storefront/products/{product:slug}', ProductDetail::class)->name('products.show');
     Route::get('/storefront/cart', Cart::class)->name('cart');
     Route::get('/storefront/checkout', Checkout::class)->name('checkout');
@@ -70,4 +73,5 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/inventory', InventoryIndex::class)->name('inventory.index');
     Route::get('/inventory/history', InventoryHistory::class)->name('inventory.history');
     Route::get('/theme-settings', ThemeSettingsIndex::class)->name('theme-settings.index');
+    Route::get('/settings', SettingsIndex::class)->name('settings.index');
 });

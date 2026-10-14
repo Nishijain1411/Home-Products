@@ -109,7 +109,7 @@
             <div class="grid {{ $categoryGridClass }} gap-4">
                 @forelse ($categories ?? [] as $category)
                     <a
-                        href="{{ route('storefront.shop', ['category' => $category->slug ?? $category->id]) }}"
+                        href="{{ route('storefront.categories.show', $category->slug) }}"
                         class="group rounded-xl border border-gray-200 bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
                     >
                         <h3 class="font-semibold transition group-hover:opacity-80" style="color: var(--store-text);">
@@ -181,12 +181,12 @@
 
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="font-semibold" style="color: var(--store-text);">
-                                        ₹{{ number_format($product->price, 2) }}
+                                        {{ format_price($product->price) }}
                                     </span>
 
                                     @if ($product->compare_at_price)
                                         <span class="text-sm text-gray-400 line-through">
-                                            ₹{{ number_format($product->compare_at_price, 2) }}
+                                            {{ format_price($product->compare_at_price) }}
                                         </span>
                                     @endif
                                 </div>

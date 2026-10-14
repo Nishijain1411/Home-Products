@@ -36,6 +36,10 @@
             </span>
         </p>
 
+        <p class="mt-1 text-xs text-gray-400">
+            Placed on {{ format_date($order->created_at, true) }}
+        </p>
+
     </div>
 
 
@@ -70,7 +74,7 @@
 
                     <div class="text-right">
                         <p class="font-semibold text-gray-900">
-                            ₹{{ number_format($item->total, 2) }}
+                            {{ format_price($item->total) }}
                         </p>
                     </div>
 
@@ -88,7 +92,7 @@
                 </span>
 
                 <span class="font-medium text-gray-900">
-                    ₹{{ number_format($order->subtotal, 2) }}
+                    {{ format_price($order->subtotal) }}
                 </span>
             </div>
 
@@ -98,7 +102,11 @@
                 </span>
 
                 <span class="font-medium text-gray-900">
-                    ₹{{ number_format($order->shipping_amount, 2) }}
+                    @if ($order->shipping_amount <= 0)
+                        Free
+                    @else
+                        {{ format_price($order->shipping_amount) }}
+                    @endif
                 </span>
             </div>
 
@@ -108,7 +116,7 @@
                 </span>
 
                 <span class="font-medium text-gray-900">
-                    ₹{{ number_format($order->tax_amount, 2) }}
+                    {{ format_price($order->tax_amount) }}
                 </span>
             </div>
 
@@ -119,11 +127,66 @@
                 </span>
 
                 <span class="text-xl font-bold text-gray-900">
-                    ₹{{ number_format($order->total, 2) }}
+                    {{ format_price($order->total) }}
                 </span>
 
             </div>
 
+        </div>
+
+    {{-- Order Summary & Payment Info --}}
+    <div class="mt-8 grid gap-6 sm:grid-cols-2">
+
+        {{-- Payment Details --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-6">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Payment Information
+            </h3>
+
+            <div class="mt-4 space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Method:</span>
+                    <span class="font-medium text-gray-900">{{ $order->payment_method_label }}</span>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">Status:</span>
+                    @if ($order->payment_status === 'paid')
+                        <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
+                            Paid
+                        </span>
+                    @else
+                        <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                            Pending (Pay on Delivery)
+                        </span>
+                    @endif
+                </div>
+
+                @if ($order->payment_reference)
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Reference:</span>
+                        <span class="font-mono text-xs font-medium text-gray-800">{{ $order->payment_reference }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        {{-- Delivery Address --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-6">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                Delivery Address
+            </h3>
+
+            @php $shipping = $order->shipping_address ?? []; @endphp
+            <div class="mt-4 text-sm text-gray-700 leading-relaxed">
+                <p class="font-semibold text-gray-900">{{ trim(($shipping['first_name'] ?? '') . ' ' . ($shipping['last_name'] ?? '')) }}</p>
+                <p>{{ $shipping['address'] ?? '' }}</p>
+                <p>{{ ($shipping['city'] ?? '') . (!empty($shipping['city']) && !empty($shipping['state']) ? ', ' : '') . ($shipping['state'] ?? '') }} {{ $shipping['postal_code'] ?? '' }}</p>
+                <p>{{ $shipping['country'] ?? '' }}</p>
+                @if (!empty($shipping['phone']))
+                    <p class="mt-1 text-xs text-gray-500">Phone: {{ $shipping['phone'] }}</p>
+                @endif
+            </div>
         </div>
 
     </div>

@@ -1,18 +1,26 @@
-<header class="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+<header class="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur" x-data="{ mobileOpen: false }">
 
-    <div class="mx-auto max-w-7xl px-6 lg:px-8">
+    <div class="mx-auto px-6 lg:px-8" style="max-width: var(--store-page-width);">
 
-        <div class="flex h-20 items-center justify-between">
+        <div class="flex h-20 items-center justify-between gap-4">
 
             {{-- Logo --}}
-            <a href="{{ route('storefront.home') }}" class="flex items-center gap-2">
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold text-white">
-                    C
-                </div>
+            <a href="{{ route('storefront.home') }}" class="flex items-center gap-2.5 shrink-0">
+                @php
+                    $storeLogo = store_logo();
+                    $storeName = store_name();
+                @endphp
+                @if ($storeLogo && Storage::disk('public')->exists($storeLogo))
+                    <img src="{{ Storage::disk('public')->url($storeLogo) }}" alt="{{ $storeName }}" class="h-10 w-auto max-w-[180px] object-contain">
+                @else
+                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold text-white shadow-sm" style="background-color: var(--store-primary, #2563eb);">
+                        {{ strtoupper(substr($storeName, 0, 1)) ?: 'C' }}
+                    </div>
 
-                <span class="text-xl font-bold tracking-tight text-gray-900">
-                    CustomCommerce
-                </span>
+                    <span class="text-xl font-bold tracking-tight text-gray-900">
+                        {{ $storeName }}
+                    </span>
+                @endif
             </a>
 
 
@@ -27,39 +35,27 @@
                 </a>
 
                 <a
-                    href="{{ route('storefront.shop') }}"
+                    href="{{ route('storefront.products.index') }}"
                     class="text-sm font-medium text-gray-700 transition hover:text-blue-600"
                 >
-                    Shop
+                    Products
                 </a>
 
                 <a
-                    href="#categories"
+                    href="{{ route('storefront.home') }}#categories"
                     class="text-sm font-medium text-gray-700 transition hover:text-blue-600"
                 >
                     Categories
                 </a>
 
                 @auth
-                    <a href="{{ route('storefront.orders.index') }}"
-                    class="text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <a
+                        href="{{ route('storefront.orders.index') }}"
+                        class="text-sm font-medium text-gray-700 hover:text-blue-600"
+                    >
                         My Orders
                     </a>
                 @endauth
-
-                <a
-                    href="#"
-                    class="text-sm font-medium text-gray-700 transition hover:text-blue-600"
-                >
-                    About
-                </a>
-
-                <a
-                    href="#"
-                    class="text-sm font-medium text-gray-700 transition hover:text-blue-600"
-                >
-                    Contact
-                </a>
 
             </nav>
 
@@ -67,56 +63,37 @@
             {{-- Actions --}}
             <div class="flex items-center gap-4">
 
-                {{-- Search --}}
-                <button
-                    type="button"
-                    class="hidden text-gray-600 transition hover:text-blue-600 sm:block"
-                    aria-label="Search"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="1.8"
+                {{-- Database-backed Search Form --}}
+                <form action="{{ route('storefront.products.index') }}" method="GET" class="relative hidden sm:block">
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Search products..."
+                        value="{{ request('q', request('search')) }}"
+                        class="w-48 lg:w-64 rounded-full border border-gray-300 bg-gray-50/70 py-1.5 pl-9 pr-3 text-xs outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
                     >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                        />
-                    </svg>
-                </button>
-
-
-                {{-- Account --}}
-                <a
-                    href="#"
-                    class="hidden text-gray-600 transition hover:text-blue-600 sm:block"
-                    aria-label="Account"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
-                        />
-                    </svg>
-                </a>
-
+                    <button type="submit" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Submit search">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="m21 21-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                            />
+                        </svg>
+                    </button>
+                </form>
 
                 {{-- Cart --}}
                 <a
                     href="{{ route('storefront.cart') }}"
-                    class="relative text-gray-600 transition hover:text-blue-600"
+                    class="relative flex items-center justify-center p-2 text-gray-600 transition hover:text-blue-600"
                     aria-label="Cart"
                 >
                     <svg
@@ -136,17 +113,15 @@
                         <circle cx="18" cy="20" r="1" />
                     </svg>
 
-                    <span class="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
-                        0
-                    </span>
+                    <livewire:storefront.cart-counter />
                 </a>
-
 
                 {{-- Mobile Menu Button --}}
                 <button
                     type="button"
-                    class="text-gray-700 md:hidden"
-                    aria-label="Open menu"
+                    @click="mobileOpen = !mobileOpen"
+                    class="text-gray-700 md:hidden p-2"
+                    aria-label="Toggle menu"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -166,6 +141,28 @@
 
             </div>
 
+        </div>
+
+        {{-- Mobile Drawer Menu --}}
+        <div x-show="mobileOpen" x-collapse class="border-t border-gray-200 py-4 md:hidden">
+            <form action="{{ route('storefront.products.index') }}" method="GET" class="mb-4">
+                <input
+                    type="text"
+                    name="q"
+                    placeholder="Search products..."
+                    value="{{ request('q', request('search')) }}"
+                    class="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-2 text-xs outline-none focus:border-blue-500 focus:bg-white"
+                >
+            </form>
+
+            <nav class="flex flex-col gap-3 text-sm font-medium text-gray-700">
+                <a href="{{ route('storefront.home') }}" class="py-1 hover:text-blue-600">Home</a>
+                <a href="{{ route('storefront.products.index') }}" class="py-1 hover:text-blue-600">Products</a>
+                <a href="{{ route('storefront.home') }}#categories" class="py-1 hover:text-blue-600">Categories</a>
+                @auth
+                    <a href="{{ route('storefront.orders.index') }}" class="py-1 hover:text-blue-600">My Orders</a>
+                @endauth
+            </nav>
         </div>
 
     </div>

@@ -18,7 +18,7 @@
                     Order #{{ $order->order_number }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
-                    Placed {{ $order->created_at->format('d M Y, h:i A') }}
+                    Placed {{ format_date($order->created_at, true) }}
                 </p>
             </div>
 
@@ -91,10 +91,7 @@
                     </div>
 
                     <p class="shrink-0 text-sm font-medium text-gray-900">
-                        ₹{{ number_format(
-                            (float) $item->price * (int) $item->quantity,
-                            2
-                        ) }}
+                        {{ format_price((float) $item->price * (int) $item->quantity) }}
                     </p>
                 </div>
             @endforeach
@@ -104,21 +101,25 @@
             <div class="flex justify-between gap-4">
                 <span class="text-gray-500">Subtotal</span>
                 <span class="text-gray-900">
-                    ₹{{ number_format((float) $order->subtotal, 2) }}
+                    {{ format_price($order->subtotal) }}
                 </span>
             </div>
 
             <div class="flex justify-between gap-4">
                 <span class="text-gray-500">Shipping</span>
                 <span class="text-gray-900">
-                    ₹{{ number_format((float) $order->shipping_amount, 2) }}
+                    @if ($order->shipping_amount <= 0)
+                        Free
+                    @else
+                        {{ format_price($order->shipping_amount) }}
+                    @endif
                 </span>
             </div>
 
             <div class="flex justify-between gap-4">
                 <span class="text-gray-500">Tax</span>
                 <span class="text-gray-900">
-                    ₹{{ number_format((float) $order->tax_amount, 2) }}
+                    {{ format_price($order->tax_amount) }}
                 </span>
             </div>
 
@@ -126,7 +127,7 @@
                         pt-4 text-base font-semibold">
                 <span class="text-gray-900">Total</span>
                 <span class="text-gray-900">
-                    ₹{{ number_format((float) $order->total, 2) }}
+                    {{ format_price($order->total) }}
                 </span>
             </div>
 

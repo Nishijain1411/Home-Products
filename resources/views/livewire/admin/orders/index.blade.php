@@ -159,7 +159,7 @@
                             </td>
 
                             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                {{ $order->created_at->format('d M Y, h:i A') }}
+                                {{ format_date($order->created_at, true) }}
                             </td>
 
                             <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
@@ -167,7 +167,7 @@
                             </td>
 
                             <td class="whitespace-nowrap px-6 py-4 text-sm font-semibold text-gray-900">
-                                ₹{{ number_format($order->total, 2) }}
+                                {{ format_price($order->total) }}
                             </td>
 
                             <td class="whitespace-nowrap px-6 py-4">

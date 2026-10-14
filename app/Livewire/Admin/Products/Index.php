@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Products;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ use Livewire\WithPagination;
 #[Layout('layouts.app')]
 class Index extends Component
 {
-    use WithFileUploads , WithPagination;
+    use WithFileUploads, WithPagination;
 
     public $search = '';
 
@@ -67,7 +68,7 @@ class Index extends Component
 
     public $existingProductImages = [];
 
-    protected function rules()
+    protected function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
@@ -147,7 +148,22 @@ class Index extends Component
             'productOptions.*.values' => ['array', 'min:1'],
             'productOptions.*.values.*' => ['required', 'string', 'max:255'],
 
+            'generatedVariants' => ['array'],
+            'generatedVariants.*.title' => ['required', 'string', 'max:255'],
+            'generatedVariants.*.sku' => ['nullable', 'string', 'max:255'],
+            'generatedVariants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'generatedVariants.*.compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'generatedVariants.*.quantity' => ['nullable', 'integer', 'min:0'],
+            'generatedVariants.*.barcode' => ['nullable', 'string', 'max:255'],
+            'generatedVariants.*.is_active' => ['boolean'],
+
             'productImages.*' => [
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+
+            'newProductImages.*' => [
                 'image',
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
@@ -166,7 +182,7 @@ class Index extends Component
                         ->orWhere('slug', 'like', '%'.$this->search.'%');
                 });
             })
-            ->with('categories')
+            ->with(['categories', 'images', 'variants.inventory'])
             ->latest()
             ->paginate(15);
 
@@ -188,39 +204,48 @@ class Index extends Component
         );
     }
 
-    public function openCreate()
+    public function openCreate(): void
     {
         $this->resetForm();
-
         $this->showModal = true;
     }
 
-    public function openEdit($id)
+    public function openEdit($id): void
     {
-        $product = Product::with('categories')->findOrFail($id);
+        $product = Product::with([
+            'categories',
+            'options.values',
+            'variants.optionValues',
+            'variants.inventory',
+            'images',
+        ])->findOrFail($id);
 
         $this->editingId = $product->id;
 
         $this->name = $product->name;
         $this->slug = $product->slug;
         $this->sku = $product->sku;
-        $this->description = $product->description;
-        $this->price = $product->price;
-        $this->compare_at_price = $product->compare_at_price;
-        $this->product_type = $product->product_type;
-        $this->vendor = $product->vendor;
-        $this->is_active = $product->is_active;
-        $this->is_featured = $product->is_featured;
-        $this->sort_order = $product->sort_order;
-        $this->seo_title = $product->seo_title;
-        $this->seo_description = $product->seo_description;
+        $this->description = $product->description ?? '';
+        $this->price = (string) $product->price;
+        $this->compare_at_price = $product->compare_at_price !== null ? (string) $product->compare_at_price : '';
+        $this->product_type = $product->product_type ?? '';
+        $this->vendor = $product->vendor ?? '';
+        $this->is_active = (bool) $product->is_active;
+        $this->is_featured = (bool) $product->is_featured;
+        $this->sort_order = (int) $product->sort_order;
+        $this->seo_title = $product->seo_title ?? '';
+        $this->seo_description = $product->seo_description ?? '';
 
-        $this->productOptions = $product->options()
-            ->with('values')
-            ->orderBy('position')
-            ->get()
+        $this->selectedCategories = $product
+            ->categories
+            ->pluck('id')
+            ->toArray();
+
+        $this->productOptions = $product->options
+            ->sortBy('position')
             ->map(function ($option) {
                 return [
+                    'id' => $option->id,
                     'name' => $option->name,
                     'values' => $option->values
                         ->sortBy('position')
@@ -229,49 +254,81 @@ class Index extends Component
                         ->toArray(),
                 ];
             })
+            ->values()
             ->toArray();
-        $this->selectedCategories = $product
-            ->categories
-            ->pluck('id')
+
+        $this->generatedVariants = $product->variants
+            ->map(function ($variant) {
+                return [
+                    'id' => $variant->id,
+                    'title' => $variant->title,
+                    'sku' => $variant->sku,
+                    'price' => $variant->price !== null ? (float) $variant->price : '',
+                    'compare_at_price' => $variant->compare_at_price !== null ? (float) $variant->compare_at_price : '',
+                    'barcode' => $variant->barcode ?? '',
+                    'is_active' => (bool) $variant->is_active,
+                    'quantity' => (int) ($variant->inventory?->quantity ?? 0),
+                    'reserved_quantity' => (int) ($variant->inventory?->reserved_quantity ?? 0),
+                    'option_values' => $variant->optionValues->map(function ($ov) {
+                        return [
+                            'option_name' => $ov->option?->name ?? '',
+                            'value' => $ov->value,
+                        ];
+                    })->toArray(),
+                ];
+            })
+            ->values()
             ->toArray();
-        $this->existingProductImages = $product->images()
-            ->orderBy('position')
-            ->get()
+
+        $this->existingProductImages = $product->images
+            ->sortBy('position')
+            ->values()
             ->toArray();
+
+        $this->productImages = [];
+        $this->newProductImages = [];
 
         $this->showModal = true;
     }
 
-    public function save()
+    public function save(): void
     {
         $validated = $this->validate();
 
         DB::transaction(function () use ($validated) {
-
             $selectedCategories = $validated['selectedCategories'] ?? [];
 
-            unset($validated['selectedCategories']);
-            unset($validated['productOptions']);
+            $productData = [
+                'name' => $validated['name'],
+                'slug' => $validated['slug'],
+                'sku' => $validated['sku'],
+                'description' => $validated['description'] ?? null,
+                'price' => (float) $validated['price'],
+                'compare_at_price' => ! empty($validated['compare_at_price']) ? (float) $validated['compare_at_price'] : null,
+                'product_type' => $validated['product_type'] ?? null,
+                'vendor' => $validated['vendor'] ?? null,
+                'is_active' => (bool) ($validated['is_active'] ?? true),
+                'is_featured' => (bool) ($validated['is_featured'] ?? false),
+                'sort_order' => (int) ($validated['sort_order'] ?? 0),
+                'seo_title' => $validated['seo_title'] ?? null,
+                'seo_description' => $validated['seo_description'] ?? null,
+            ];
 
             if ($this->editingId) {
-
                 $product = Product::findOrFail($this->editingId);
-
-                $product->update($validated);
-
+                $product->update($productData);
             } else {
-
-                $product = Product::create($validated);
+                $product = Product::create($productData);
             }
 
             /*
-            * Save categories
-            */
+             * Save categories
+             */
             $product->categories()->sync($selectedCategories);
 
             /*
-            * Save options and option values
-            */
+             * Save options and option values
+             */
             $optionValueMap = $this->saveProductOptions($product);
 
             /*
@@ -282,27 +339,14 @@ class Index extends Component
             }
 
             /*
-            * Save variants and inventory.
-            */
-            $this->saveProductVariants(
-                $product,
-                $optionValueMap
-            ); /*
-            * Products without options still require a default variant.
-            */
-            if (empty($this->generatedVariants)) {
-                $this->generateVariants();
-            }
+             * Save variants and inventory.
+             */
+            $this->saveProductVariants($product, $optionValueMap);
 
             /*
-            * Save variants and inventory.
-            */
-            $this->saveProductVariants(
-                $product,
-                $optionValueMap
-            );
+             * Save product images.
+             */
             $this->saveProductImages($product);
-
         });
 
         session()->flash(
@@ -315,42 +359,43 @@ class Index extends Component
         $this->closeModal();
     }
 
-    private function saveProductOptions(Product $product)
+    private function saveProductOptions(Product $product): array
     {
         $product->options()->delete();
 
         $optionValueMap = [];
 
         foreach ($this->productOptions as $optionIndex => $optionData) {
-
-            if (empty(trim($optionData['name'] ?? ''))) {
+            $name = trim($optionData['name'] ?? '');
+            if ($name === '') {
                 continue;
             }
 
             $option = $product->options()->create([
-                'name' => trim($optionData['name']),
+                'name' => $name,
                 'position' => $optionIndex,
             ]);
 
             foreach ($optionData['values'] as $valueIndex => $value) {
-
-                if (empty(trim($value))) {
+                $trimmedVal = trim($value);
+                if ($trimmedVal === '') {
                     continue;
                 }
 
                 $optionValue = $option->values()->create([
-                    'value' => trim($value),
+                    'value' => $trimmedVal,
                     'position' => $valueIndex,
                 ]);
 
                 $optionValueMap[$optionIndex][$valueIndex] = $optionValue->id;
+                $optionValueMap['by_text'][$name][$trimmedVal] = $optionValue->id;
             }
         }
 
         return $optionValueMap;
     }
 
-    public function toggleStatus($id)
+    public function toggleStatus($id): void
     {
         $product = Product::findOrFail($id);
 
@@ -359,18 +404,25 @@ class Index extends Component
         ]);
     }
 
-    public function confirmDelete($id)
+    public function confirmDelete($id): void
     {
         $this->deleteId = $id;
 
         $this->showDeleteModal = true;
     }
 
-    public function delete()
+    public function delete(): void
     {
         $product = Product::findOrFail($this->deleteId);
 
         $product->categories()->detach();
+
+        // Delete associated image files
+        foreach ($product->images as $image) {
+            if (Storage::disk('public')->exists($image->path)) {
+                Storage::disk('public')->delete($image->path);
+            }
+        }
 
         $product->delete();
 
@@ -382,13 +434,13 @@ class Index extends Component
         $this->closeDeleteModal();
     }
 
-    public function closeDeleteModal()
+    public function closeDeleteModal(): void
     {
         $this->showDeleteModal = false;
         $this->deleteId = null;
     }
 
-    public function closeModal()
+    public function closeModal(): void
     {
         $this->showModal = false;
 
@@ -397,7 +449,7 @@ class Index extends Component
         $this->resetValidation();
     }
 
-    private function resetForm()
+    private function resetForm(): void
     {
         $this->reset([
             'editingId',
@@ -415,6 +467,7 @@ class Index extends Component
             'productOptions',
             'generatedVariants',
             'productImages',
+            'newProductImages',
             'existingProductImages',
         ]);
 
@@ -423,14 +476,14 @@ class Index extends Component
         $this->sort_order = 0;
     }
 
-    public function updatedName($value)
+    public function updatedName($value): void
     {
         if (! $this->editingId) {
             $this->slug = Str::slug($value);
         }
     }
 
-    public function addOption()
+    public function addOption(): void
     {
         $this->productOptions[] = [
             'name' => '',
@@ -438,19 +491,19 @@ class Index extends Component
         ];
     }
 
-    public function removeOption($optionIndex)
+    public function removeOption($optionIndex): void
     {
         unset($this->productOptions[$optionIndex]);
 
         $this->productOptions = array_values($this->productOptions);
     }
 
-    public function addOptionValue($optionIndex)
+    public function addOptionValue($optionIndex): void
     {
         $this->productOptions[$optionIndex]['values'][] = '';
     }
 
-    public function removeOptionValue($optionIndex, $valueIndex)
+    public function removeOptionValue($optionIndex, $valueIndex): void
     {
         unset($this->productOptions[$optionIndex]['values'][$valueIndex]);
 
@@ -458,7 +511,7 @@ class Index extends Component
             array_values($this->productOptions[$optionIndex]['values']);
     }
 
-    public function generateVariants()
+    public function generateVariants(): void
     {
         $options = collect($this->productOptions)
             ->map(function ($option, $optionIndex) {
@@ -479,18 +532,23 @@ class Index extends Component
             ->values()
             ->toArray();
 
+        $existingByTitle = collect($this->generatedVariants)->keyBy('title');
+
         if (empty($options)) {
+            $existingDefault = $existingByTitle->get('Default Variant') ?? collect($this->generatedVariants)->first();
+
             $this->generatedVariants = [
                 [
+                    'id' => $existingDefault['id'] ?? null,
                     'title' => 'Default Variant',
                     'option_values' => [],
-                    'sku' => '',
-                    'price' => $this->price,
-                    'compare_at_price' => $this->compare_at_price,
-                    'barcode' => '',
-                    'is_active' => true,
-                    'quantity' => 0,
-                    'reserved_quantity' => 0,
+                    'sku' => ! empty($existingDefault['sku']) ? $existingDefault['sku'] : ($this->sku ?: ''),
+                    'price' => ! empty($existingDefault['price']) ? $existingDefault['price'] : $this->price,
+                    'compare_at_price' => ! empty($existingDefault['compare_at_price']) ? $existingDefault['compare_at_price'] : $this->compare_at_price,
+                    'barcode' => $existingDefault['barcode'] ?? '',
+                    'is_active' => $existingDefault['is_active'] ?? true,
+                    'quantity' => $existingDefault['quantity'] ?? 0,
+                    'reserved_quantity' => $existingDefault['reserved_quantity'] ?? 0,
                 ],
             ];
 
@@ -500,13 +558,10 @@ class Index extends Component
         $combinations = [[]];
 
         foreach ($options as $optionValues) {
-
             $newCombinations = [];
 
             foreach ($combinations as $combination) {
-
                 foreach ($optionValues as $value) {
-
                     $newCombinations[] = [
                         ...$combination,
                         $value,
@@ -518,39 +573,43 @@ class Index extends Component
         }
 
         $this->generatedVariants = collect($combinations)
-            ->map(function ($combination) {
-
+            ->map(function ($combination) use ($existingByTitle) {
                 $title = collect($combination)
                     ->pluck('value')
                     ->implode(' / ');
 
+                $existing = $existingByTitle->get($title);
+
                 return [
+                    'id' => $existing['id'] ?? null,
                     'title' => $title,
                     'option_values' => $combination,
-                    'sku' => '',
-                    'price' => $this->price,
-                    'compare_at_price' => $this->compare_at_price,
-                    'barcode' => '',
-                    'is_active' => true,
-                    'quantity' => 0,
-                    'reserved_quantity' => 0,
+                    'sku' => $existing['sku'] ?? '',
+                    'price' => ! empty($existing['price']) ? $existing['price'] : $this->price,
+                    'compare_at_price' => ! empty($existing['compare_at_price']) ? $existing['compare_at_price'] : $this->compare_at_price,
+                    'barcode' => $existing['barcode'] ?? '',
+                    'is_active' => $existing['is_active'] ?? true,
+                    'quantity' => $existing['quantity'] ?? 0,
+                    'reserved_quantity' => $existing['reserved_quantity'] ?? 0,
                 ];
             })
             ->toArray();
     }
 
-    public function removeProductImage($index)
+    public function removeProductImage($index): void
     {
         unset($this->productImages[$index]);
 
         $this->productImages = array_values($this->productImages);
     }
 
-    public function removeExistingProductImage($imageId)
+    public function removeExistingProductImage($imageId): void
     {
         $image = ProductImage::where('id', $imageId)
             ->where('product_id', $this->editingId)
             ->firstOrFail();
+
+        $wasPrimary = (bool) $image->is_primary;
 
         if (Storage::disk('public')->exists($image->path)) {
             Storage::disk('public')->delete($image->path);
@@ -558,14 +617,22 @@ class Index extends Component
 
         $image->delete();
 
-        $this->existingProductImages = ProductImage::where('product_id', $this->editingId)
-            ->orderBy('position')
-            ->get()
-            ->toArray();
+        if ($wasPrimary) {
+            $firstRemaining = ProductImage::where('product_id', $this->editingId)
+                ->orderBy('position')
+                ->first();
+            $firstRemaining?->update(['is_primary' => true]);
+        }
+
+        $this->refreshExistingProductImages();
     }
 
-    public function updatedNewProductImages()
+    public function updatedNewProductImages(): void
     {
+        $this->validate([
+            'newProductImages.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
         foreach ($this->newProductImages as $image) {
             $this->productImages[] = $image;
         }
@@ -573,9 +640,11 @@ class Index extends Component
         $this->newProductImages = [];
     }
 
-    public function setPrimaryImage($imageId)
+    public function setPrimaryImage($imageId): void
     {
-        $image = ProductImage::findOrFail($imageId);
+        $image = ProductImage::where('id', $imageId)
+            ->where('product_id', $this->editingId)
+            ->firstOrFail();
 
         ProductImage::where('product_id', $image->product_id)
             ->update(['is_primary' => false]);
@@ -584,13 +653,10 @@ class Index extends Component
             'is_primary' => true,
         ]);
 
-        $this->existingProductImages = ProductImage::where('product_id', $image->product_id)
-            ->orderBy('position')
-            ->get()
-            ->toArray();
+        $this->refreshExistingProductImages();
     }
 
-    public function moveImageUp($imageId)
+    public function moveImageUp($imageId): void
     {
         $image = ProductImage::where('id', $imageId)
             ->where('product_id', $this->editingId)
@@ -618,7 +684,7 @@ class Index extends Component
         $this->refreshExistingProductImages();
     }
 
-    public function moveImageDown($imageId)
+    public function moveImageDown($imageId): void
     {
         $image = ProductImage::where('id', $imageId)
             ->where('product_id', $this->editingId)
@@ -646,7 +712,7 @@ class Index extends Component
         $this->refreshExistingProductImages();
     }
 
-    private function refreshExistingProductImages()
+    private function refreshExistingProductImages(): void
     {
         $this->existingProductImages = ProductImage::where('product_id', $this->editingId)
             ->orderBy('position')
@@ -654,94 +720,129 @@ class Index extends Component
             ->toArray();
     }
 
-    private function saveProductVariants(Product $product, array $optionValueMap)
+    private function saveProductVariants(Product $product, array $optionValueMap): void
     {
-        /*
-        * Variants are recreated whenever the product is saved.
-        */
-        $product->variants()->delete();
+        $existingVariants = $product->variants()->with('inventory')->get()->keyBy('id');
+        $existingByTitle = $product->variants()->with('inventory')->get()->keyBy('title');
+        $persistedVariantIds = [];
 
         foreach ($this->generatedVariants as $variantData) {
+            $title = trim($variantData['title'] ?? '');
+            if ($title === '') {
+                continue;
+            }
 
-            $variant = $product->variants()->create([
-                'title' => $variantData['title'],
+            $targetVariant = null;
+            if (! empty($variantData['id']) && $existingVariants->has($variantData['id'])) {
+                $targetVariant = $existingVariants->get($variantData['id']);
+            } elseif ($existingByTitle->has($title)) {
+                $targetVariant = $existingByTitle->get($title);
+            }
 
-                'sku' => ! empty(trim($variantData['sku'] ?? ''))
-                    ? trim($variantData['sku'])
-                    : $this->generateVariantSku(
-                        $product,
-                        $variantData['title']
-                    ),
+            $sku = ! empty(trim($variantData['sku'] ?? ''))
+                ? trim($variantData['sku'])
+                : ($targetVariant?->sku ?: $this->generateVariantSku($product, $title));
 
-                'price' => $variantData['price'] ?: null,
+            $price = isset($variantData['price']) && $variantData['price'] !== '' && (float) $variantData['price'] >= 0
+                ? (float) $variantData['price']
+                : null;
 
-                'compare_at_price' => $variantData['compare_at_price'] ?: null,
+            $compareAtPrice = isset($variantData['compare_at_price']) && $variantData['compare_at_price'] !== '' && (float) $variantData['compare_at_price'] >= 0
+                ? (float) $variantData['compare_at_price']
+                : null;
 
-                'barcode' => ! empty(trim($variantData['barcode'] ?? ''))
-                    ? trim($variantData['barcode'])
-                    : null,
+            $barcode = ! empty(trim($variantData['barcode'] ?? ''))
+                ? trim($variantData['barcode'])
+                : null;
 
-                'is_active' => $variantData['is_active'] ?? true,
-            ]);
+            $isActive = isset($variantData['is_active']) ? (bool) $variantData['is_active'] : true;
 
-            /*
-            * Connect option values to this variant.
-            */
+            $payload = [
+                'title' => $title,
+                'sku' => $sku,
+                'price' => $price,
+                'compare_at_price' => $compareAtPrice,
+                'barcode' => $barcode,
+                'is_active' => $isActive,
+            ];
+
+            if ($targetVariant) {
+                $targetVariant->update($payload);
+                $variant = $targetVariant;
+            } else {
+                $variant = $product->variants()->create($payload);
+            }
+
+            // Sync option values
             $optionValueIds = [];
-
-            foreach ($variantData['option_values'] ?? [] as $optionValue) {
-
-                $optionIndex = $optionValue['option_index'] ?? null;
-                $valueIndex = $optionValue['value_index'] ?? null;
-
-                if (
-                    $optionIndex !== null &&
-                    $valueIndex !== null &&
-                    isset($optionValueMap[$optionIndex][$valueIndex])
-                ) {
-                    $optionValueIds[] =
-                        $optionValueMap[$optionIndex][$valueIndex];
+            foreach ($variantData['option_values'] ?? [] as $ov) {
+                $optIndex = $ov['option_index'] ?? null;
+                $valIndex = $ov['value_index'] ?? null;
+                if ($optIndex !== null && $valIndex !== null && isset($optionValueMap[$optIndex][$valIndex])) {
+                    $optionValueIds[] = $optionValueMap[$optIndex][$valIndex];
+                } elseif (! empty($ov['option_name']) && ! empty($ov['value']) && isset($optionValueMap['by_text'][$ov['option_name']][$ov['value']])) {
+                    $optionValueIds[] = $optionValueMap['by_text'][$ov['option_name']][$ov['value']];
                 }
             }
 
-            /*
-            * Sync variant <-> option value relationship.
-            */
-            $variant->optionValues()->sync(
-                array_values(array_unique($optionValueIds))
-            );
+            if (empty($optionValueIds) && $product->options()->count() > 0) {
+                $parts = array_map('trim', explode('/', $title));
+                foreach ($product->options()->with('values')->get() as $opt) {
+                    $matchingVal = $opt->values->first(fn ($v) => in_array($v->value, $parts));
+                    if ($matchingVal) {
+                        $optionValueIds[] = $matchingVal->id;
+                    }
+                }
+            }
 
-            /*
-            * Create inventory record.
-            */
-            $variant->inventory()->create([
-                'quantity' => max(
-                    0,
-                    (int) ($variantData['quantity'] ?? 0)
-                ),
+            $variant->optionValues()->sync(array_values(array_unique($optionValueIds)));
 
-                'reserved_quantity' => max(
-                    0,
-                    (int) ($variantData['reserved_quantity'] ?? 0)
-                ),
-            ]);
+            // Manage inventory
+            $targetQty = max(0, (int) ($variantData['quantity'] ?? 0));
+            $inventory = $variant->inventory;
+
+            if ($inventory) {
+                $inventory->update([
+                    'quantity' => $targetQty,
+                ]);
+            } else {
+                $variant->inventory()->create([
+                    'quantity' => $targetQty,
+                    'reserved_quantity' => 0,
+                ]);
+            }
+
+            $persistedVariantIds[] = $variant->id;
+        }
+
+        if (! empty($persistedVariantIds)) {
+            $product->variants()->whereNotIn('id', $persistedVariantIds)->delete();
         }
     }
 
-    private function generateVariantSku(Product $product, string $title)
+    private function generateVariantSku(Product $product, string $title): string
     {
-        return $product->sku.'-'.strtoupper(
-            Str::slug($title, '-')
-        );
+        $baseSku = $product->sku ?: 'PROD-'.$product->id;
+        $slug = strtoupper(Str::slug($title, '-'));
+        $candidate = $baseSku.($slug ? '-'.$slug : '-VAR');
+
+        $count = 1;
+        while (ProductVariant::where('sku', $candidate)->where('product_id', '!=', $product->id)->exists()) {
+            $candidate = $baseSku.($slug ? '-'.$slug : '-VAR').'-'.$count;
+            $count++;
+        }
+
+        return $candidate;
     }
 
-    private function saveProductImages(Product $product)
+    private function saveProductImages(Product $product): void
     {
         if (empty($this->productImages)) {
             return;
         }
 
         $existingCount = $product->images()->count();
+        $hasPrimary = $product->images()->where('is_primary', true)->exists();
 
         foreach ($this->productImages as $index => $image) {
             $path = $image->store(
@@ -753,8 +854,11 @@ class Index extends Component
                 'path' => $path,
                 'alt_text' => $product->name,
                 'position' => $existingCount + $index,
-                'is_primary' => ($existingCount + $index) === 0,
+                'is_primary' => (! $hasPrimary && $index === 0),
             ]);
         }
+
+        $this->productImages = [];
+        $this->newProductImages = [];
     }
 }

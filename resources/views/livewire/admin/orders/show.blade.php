@@ -22,7 +22,7 @@
             </div>
 
             <p class="mt-2 text-sm text-gray-500">
-                Placed on {{ $order->created_at->format('d M Y, h:i A') }}
+                Placed on {{ format_date($order->created_at, true) }}
             </p>
         </div>
 
@@ -116,11 +116,11 @@
 
                                 <p class="text-sm text-gray-500">
                                     {{ $item->quantity }} ×
-                                    ₹{{ number_format($item->unit_price, 2) }}
+                                    {{ format_price($item->unit_price) }}
                                 </p>
 
                                 <p class="mt-1 font-semibold text-gray-900">
-                                    ₹{{ number_format($item->total, 2) }}
+                                    {{ format_price($item->total) }}
                                 </p>
 
                             </div>
@@ -142,7 +142,7 @@
                             </span>
 
                             <span class="font-medium text-gray-900">
-                                ₹{{ number_format($order->subtotal, 2) }}
+                                {{ format_price($order->subtotal) }}
                             </span>
                         </div>
 
@@ -152,7 +152,11 @@
                             </span>
 
                             <span class="font-medium text-gray-900">
-                                ₹{{ number_format($order->shipping_amount, 2) }}
+                                @if ($order->shipping_amount <= 0)
+                                    Free
+                                @else
+                                    {{ format_price($order->shipping_amount) }}
+                                @endif
                             </span>
                         </div>
 
@@ -162,7 +166,7 @@
                             </span>
 
                             <span class="font-medium text-gray-900">
-                                ₹{{ number_format($order->tax_amount, 2) }}
+                                {{ format_price($order->tax_amount) }}
                             </span>
                         </div>
 
@@ -173,7 +177,7 @@
                             </span>
 
                             <span class="text-xl font-bold text-gray-900">
-                                ₹{{ number_format($order->total, 2) }}
+                                {{ format_price($order->total) }}
                             </span>
 
                         </div>

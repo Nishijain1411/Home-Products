@@ -19,6 +19,12 @@ class ProductVariant extends Model
         'is_active',
     ];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+        'compare_at_price' => 'decimal:2',
+        'is_active' => 'boolean',
+    ];
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
@@ -37,5 +43,33 @@ class ProductVariant extends Model
     public function inventory(): HasOne
     {
         return $this->hasOne(Inventory::class);
+    }
+
+    public function getEffectivePriceAttribute(): float
+    {
+        if ($this->price !== null && (float) $this->price > 0) {
+            return (float) $this->price;
+        }
+
+        return (float) ($this->product?->price ?? 0);
+    }
+
+    public function getEffectiveCompareAtPriceAttribute(): ?float
+    {
+        if ($this->compare_at_price !== null) {
+            return (float) $this->compare_at_price;
+        }
+
+        return $this->product?->compare_at_price ? (float) $this->product->compare_at_price : null;
+    }
+
+    public function getAvailableStockAttribute(): int
+    {
+        return (int) ($this->inventory?->quantity ?? 0);
+    }
+
+    public function getIsInStockAttribute(): bool
+    {
+        return $this->available_stock > 0;
     }
 }
