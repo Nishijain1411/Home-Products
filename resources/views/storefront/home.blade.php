@@ -4,6 +4,7 @@
 
 @php
     $sections = $storefrontTheme['sections'] ?? [];
+    $sectionsOrder = $storefrontTheme['sections_order'] ?? ['hero', 'categories', 'products', 'cta'];
 
     // Hero Section
     $hero = $sections['hero'] ?? [];
@@ -52,8 +53,9 @@
     $ctaButtonLink = $cta['button_link'] ?? '#products';
 @endphp
 
-    {{-- Hero Section --}}
-    @if ($showHero)
+@foreach ($sectionsOrder as $sectionKey)
+    @if ($sectionKey === 'hero' && $showHero)
+        {{-- Hero Section --}}
         <section class="relative overflow-hidden" style="background-color: var(--store-secondary);">
             <div class="mx-auto px-6 py-24 lg:px-8 lg:py-32" style="max-width: var(--store-page-width);">
                 <div class="max-w-2xl">
@@ -91,10 +93,8 @@
                 </div>
             </div>
         </section>
-    @endif
-
-    {{-- Categories Section --}}
-    @if ($showCategories)
+    @elseif ($sectionKey === 'categories' && $showCategories)
+        {{-- Categories Section --}}
         <section id="categories" class="mx-auto px-6 py-16 lg:px-8" style="max-width: var(--store-page-width);">
             <div class="mb-8">
                 <h2 class="text-2xl font-bold tracking-tight" style="color: var(--store-text);">
@@ -129,10 +129,8 @@
                 @endforelse
             </div>
         </section>
-    @endif
-
-    {{-- Featured Products Section --}}
-    @if ($showProducts)
+    @elseif ($sectionKey === 'products' && $showProducts)
+        {{-- Featured Products Section --}}
         <section id="products" class="bg-gray-50/70 border-t border-b border-gray-100">
             <div class="mx-auto px-6 py-16 lg:px-8" style="max-width: var(--store-page-width);">
                 <div class="mb-8 flex items-end justify-between gap-4">
@@ -210,10 +208,8 @@
                 </div>
             </div>
         </section>
-    @endif
-
-    {{-- Call to Action (CTA) Section --}}
-    @if ($showCta)
+    @elseif ($sectionKey === 'cta' && $showCta)
+        {{-- Call to Action (CTA) Section --}}
         <section class="mx-auto px-6 py-16 lg:px-8" style="max-width: var(--store-page-width);">
             <div
                 class="rounded-2xl px-6 py-12 text-center sm:px-12 text-white shadow-lg"
@@ -237,5 +233,6 @@
             </div>
         </section>
     @endif
+@endforeach
 
 @endsection

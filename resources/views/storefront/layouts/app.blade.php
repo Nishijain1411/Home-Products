@@ -4,7 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>{{ $title ?? store_name() }}</title>
+    <title>@yield('title', $title ?? store_name())</title>
+
+    @hasSection('meta_description')
+        <meta name="description" content="@yield('meta_description')">
+    @elseif(!empty($metaDescription))
+        <meta name="description" content="{{ $metaDescription }}">
+    @elseif(store_setting('store_tagline'))
+        <meta name="description" content="{{ store_setting('store_tagline') }}">
+    @endif
+
+    @hasSection('canonical_url')
+        <link rel="canonical" href="@yield('canonical_url')">
+    @elseif(!empty($canonicalUrl))
+        <link rel="canonical" href="{{ $canonicalUrl }}">
+    @endif
+
+    @hasSection('robots')
+        <meta name="robots" content="@yield('robots')">
+    @elseif(isset($isIndexed))
+        <meta name="robots" content="{{ $isIndexed ? 'index, follow' : 'noindex, nofollow' }}">
+    @else
+        <meta name="robots" content="index, follow">
+    @endif
+
+    @stack('meta')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -13,6 +37,12 @@
 @php
     $themeColors = $storefrontTheme['colors'] ?? [];
     $themeLayout = $storefrontTheme['layout'] ?? [];
+    $announcement = $storefrontTheme['announcement'] ?? [];
+    $showAnnouncement = (bool) ($announcement['visible'] ?? false);
+    $announcementText = $announcement['text'] ?? '';
+    $announcementLink = $announcement['link'] ?? '';
+    $announcementBg = $announcement['bg_color'] ?? ($themeColors['primary'] ?? '#2563eb');
+    $announcementTextColor = $announcement['text_color'] ?? '#ffffff';
     $isMaintenance = (bool) store_setting('maintenance_mode', false);
     $isAdmin = auth()->check() && (auth()->user()->hasRole('Admin') || auth()->user()->hasRole('Super Admin'));
 @endphp
@@ -26,6 +56,22 @@
         background-color: var(--store-background);
         color: var(--store-text);
     ">
+
+    @if ($showAnnouncement && !empty($announcementText))
+        <div class="px-4 py-2.5 text-center text-xs font-medium tracking-wide transition-all z-40"
+             style="background-color: {{ $announcementBg }}; color: {{ $announcementTextColor }};">
+            @if ($announcementLink)
+                <a href="{{ $announcementLink }}" class="inline-flex items-center gap-1.5 hover:underline font-semibold">
+                    <span>{{ $announcementText }}</span>
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            @else
+                <span>{{ $announcementText }}</span>
+            @endif
+        </div>
+    @endif
 
     @if ($isMaintenance && $isAdmin)
         <div class="bg-amber-500 text-amber-950 px-4 py-2 text-center text-xs font-semibold shadow-sm">

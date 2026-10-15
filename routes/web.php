@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\StorefrontController;
 use App\Livewire\Admin\Categories\Create as CategoryCreate;
 use App\Livewire\Admin\Categories\Edit as CategoryEdit;
@@ -12,8 +13,12 @@ use App\Livewire\Admin\Discounts\Edit as DiscountEdit;
 use App\Livewire\Admin\Discounts\Index as DiscountIndex;
 use App\Livewire\Admin\Inventory\History as InventoryHistory;
 use App\Livewire\Admin\Inventory\Index as InventoryIndex;
+use App\Livewire\Admin\Navigation\Index as NavigationIndex;
 use App\Livewire\Admin\Orders\Index as OrderIndex;
 use App\Livewire\Admin\Orders\Show as OrderShow;
+use App\Livewire\Admin\Pages\Create as PageCreate;
+use App\Livewire\Admin\Pages\Edit as PageEdit;
+use App\Livewire\Admin\Pages\Index as PageIndex;
 use App\Livewire\Admin\Products\Create as ProductCreate;
 use App\Livewire\Admin\Products\Edit as ProductEdit;
 use App\Livewire\Admin\Products\Index as ProductIndex;
@@ -60,6 +65,7 @@ Route::name('storefront.')->group(function () {
     Route::get('/storefront/cart', Cart::class)->name('cart');
     Route::get('/storefront/checkout', Checkout::class)->name('checkout');
     Route::get('/storefront/order-success/{orderNumber}', OrderSuccess::class)->name('order-success');
+    Route::get('/page/{slug}', [PageController::class, 'show'])->name('pages.show');
     Route::middleware('auth')->group(function () {
         Route::get('/my-orders', CustomerOrderIndex::class)->name('orders.index');
         Route::get('/my-orders/{orderNumber}', CustomerOrderShow::class)->name('orders.show');
@@ -89,6 +95,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/customers/{customerId}', CustomerShow::class)->name('customers.show');
     Route::get('/inventory', InventoryIndex::class)->name('inventory.index');
     Route::get('/inventory/history', InventoryHistory::class)->name('inventory.history');
+    Route::get('/pages', PageIndex::class)->name('pages.index');
+    Route::get('/pages/create', PageCreate::class)->name('pages.create');
+    Route::get('/pages/{page}/edit', PageEdit::class)->name('pages.edit');
+    Route::get('/navigation', NavigationIndex::class)->name('navigation.index');
     Route::get('/theme-settings', ThemeSettingsIndex::class)->name('theme-settings.index');
     Route::get('/settings', SettingsIndex::class)->name('settings.index');
 });

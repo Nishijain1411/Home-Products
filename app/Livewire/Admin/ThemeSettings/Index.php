@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Admin\ThemeSettings;
 
+use App\Models\Category;
+use App\Models\Product;
 use App\Models\ThemeSetting;
 use Livewire\Component;
 
@@ -20,6 +22,20 @@ class Index extends Component
     public string $textColor = '#111827';
 
     public string $pageWidth = '1280px';
+
+    // Promotional Banner / Announcement Bar
+    public bool $showAnnouncement = false;
+
+    public string $announcementText = 'Special Offer: Free shipping on all orders over ₹999!';
+
+    public string $announcementLink = '';
+
+    public string $announcementBg = '#2563eb';
+
+    public string $announcementTextColor = '#ffffff';
+
+    // Section Ordering
+    public array $sectionsOrder = ['hero', 'categories', 'products', 'cta'];
 
     // Hero Section
     public bool $showHero = true;
@@ -49,6 +65,8 @@ class Index extends Component
 
     public int $categoryColumns = 4;
 
+    public array $selectedCategoryIds = [];
+
     // Featured Products Section
     public bool $showProducts = true;
 
@@ -63,6 +81,8 @@ class Index extends Component
     public int $productsColumns = 4;
 
     public int $productsCount = 8;
+
+    public array $selectedProductIds = [];
 
     // Call to Action (CTA) Section
     public bool $showCta = true;
@@ -103,6 +123,23 @@ class Index extends Component
         $this->textColor = $colors['text'] ?? '#111827';
         $this->pageWidth = $layout['page_width'] ?? '1280px';
 
+        // Announcement Bar
+        $announcement = $settings['announcement'] ?? [];
+        $this->showAnnouncement = (bool) ($announcement['visible'] ?? false);
+        $this->announcementText = $announcement['text'] ?? 'Special Offer: Free shipping on all orders over ₹999!';
+        $this->announcementLink = $announcement['link'] ?? '';
+        $this->announcementBg = $announcement['bg_color'] ?? '#2563eb';
+        $this->announcementTextColor = $announcement['text_color'] ?? '#ffffff';
+
+        // Sections order
+        $validSections = ['hero', 'categories', 'products', 'cta'];
+        $rawOrder = $settings['sections_order'] ?? $validSections;
+        $this->sectionsOrder = array_values(array_unique(array_merge(
+            array_intersect($rawOrder, $validSections),
+            $validSections
+        )));
+
+        // Hero
         $hero = $sections['hero'] ?? [];
         $this->showHero = (bool) ($hero['visible'] ?? true);
         $this->heroEyebrow = $hero['eyebrow'] ?? 'New Collection';
@@ -114,12 +151,15 @@ class Index extends Component
         $this->heroSecondaryButtonText = $hero['secondary_button_text'] ?? 'Explore Categories';
         $this->heroSecondaryButtonLink = $hero['secondary_button_link'] ?? '#categories';
 
+        // Categories
         $categories = $sections['categories'] ?? [];
         $this->showCategories = (bool) ($categories['visible'] ?? true);
         $this->categoryHeading = $categories['heading'] ?? 'Shop by Category';
         $this->categoryDescription = $categories['description'] ?? 'Explore our product categories.';
         $this->categoryColumns = (int) ($categories['columns'] ?? 4);
+        $this->selectedCategoryIds = array_map('intval', $categories['category_ids'] ?? []);
 
+        // Featured Products
         $products = $sections['products'] ?? [];
         $this->showProducts = (bool) ($products['visible'] ?? true);
         $this->productsHeading = $products['heading'] ?? 'Featured Products';
@@ -128,13 +168,35 @@ class Index extends Component
         $this->productsViewAllLink = $products['view_all_link'] ?? '/storefront/shop';
         $this->productsColumns = (int) ($products['columns'] ?? 4);
         $this->productsCount = (int) ($products['count'] ?? 8);
+        $this->selectedProductIds = array_map('intval', $products['product_ids'] ?? []);
 
+        // CTA
         $cta = $sections['cta'] ?? [];
         $this->showCta = (bool) ($cta['visible'] ?? true);
         $this->ctaHeading = $cta['heading'] ?? "Discover something you'll love.";
         $this->ctaDescription = $cta['description'] ?? 'Browse our collection and find the perfect products for you.';
         $this->ctaButtonText = $cta['button_text'] ?? 'Start Shopping';
         $this->ctaButtonLink = $cta['button_link'] ?? '#products';
+    }
+
+    public function moveSectionUp(string $sectionKey): void
+    {
+        $index = array_search($sectionKey, $this->sectionsOrder, true);
+        if ($index !== false && $index > 0) {
+            $prev = $this->sectionsOrder[$index - 1];
+            $this->sectionsOrder[$index - 1] = $sectionKey;
+            $this->sectionsOrder[$index] = $prev;
+        }
+    }
+
+    public function moveSectionDown(string $sectionKey): void
+    {
+        $index = array_search($sectionKey, $this->sectionsOrder, true);
+        if ($index !== false && $index < count($this->sectionsOrder) - 1) {
+            $next = $this->sectionsOrder[$index + 1];
+            $this->sectionsOrder[$index + 1] = $sectionKey;
+            $this->sectionsOrder[$index] = $next;
+        }
     }
 
     protected function rules(): array
@@ -146,6 +208,14 @@ class Index extends Component
             'backgroundColor' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'textColor' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'pageWidth' => ['required', 'in:1024px,1152px,1280px,1440px,100%'],
+
+            'showAnnouncement' => ['boolean'],
+            'announcementText' => ['nullable', 'string', 'max:255'],
+            'announcementLink' => ['nullable', 'string', 'max:255'],
+            'announcementBg' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'announcementTextColor' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+
+            'sectionsOrder' => ['required', 'array'],
 
             'showHero' => ['boolean'],
             'heroEyebrow' => ['required', 'string', 'max:100'],
@@ -161,6 +231,7 @@ class Index extends Component
             'categoryHeading' => ['required', 'string', 'max:200'],
             'categoryDescription' => ['required', 'string', 'max:1000'],
             'categoryColumns' => ['required', 'integer', 'in:2,3,4'],
+            'selectedCategoryIds' => ['array'],
 
             'showProducts' => ['boolean'],
             'productsHeading' => ['required', 'string', 'max:200'],
@@ -169,6 +240,7 @@ class Index extends Component
             'productsViewAllLink' => ['required', 'string', 'max:255'],
             'productsColumns' => ['required', 'integer', 'in:2,3,4'],
             'productsCount' => ['required', 'integer', 'in:4,8,12,16'],
+            'selectedProductIds' => ['array'],
 
             'showCta' => ['boolean'],
             'ctaHeading' => ['required', 'string', 'max:200'],
@@ -190,6 +262,14 @@ class Index extends Component
             'layout' => [
                 'page_width' => $this->pageWidth,
             ],
+            'announcement' => [
+                'visible' => (bool) $this->showAnnouncement,
+                'text' => $this->announcementText,
+                'link' => $this->announcementLink,
+                'bg_color' => $this->announcementBg,
+                'text_color' => $this->announcementTextColor,
+            ],
+            'sections_order' => $this->sectionsOrder,
             'sections' => [
                 'hero' => [
                     'visible' => (bool) $this->showHero,
@@ -207,6 +287,7 @@ class Index extends Component
                     'heading' => $this->categoryHeading,
                     'description' => $this->categoryDescription,
                     'columns' => (int) $this->categoryColumns,
+                    'category_ids' => array_values(array_map('intval', $this->selectedCategoryIds)),
                 ],
                 'products' => [
                     'visible' => (bool) $this->showProducts,
@@ -216,6 +297,7 @@ class Index extends Component
                     'view_all_link' => $this->productsViewAllLink,
                     'columns' => (int) $this->productsColumns,
                     'count' => (int) $this->productsCount,
+                    'product_ids' => array_values(array_map('intval', $this->selectedProductIds)),
                 ],
                 'cta' => [
                     'visible' => (bool) $this->showCta,
@@ -270,6 +352,12 @@ class Index extends Component
 
     public function render()
     {
-        return view('livewire.admin.theme-settings.index')->layout('layouts.app');
+        $allCategories = Category::orderBy('name')->get();
+        $allProducts = Product::select('id', 'name', 'price')->orderBy('name')->get();
+
+        return view('livewire.admin.theme-settings.index', [
+            'allCategories' => $allCategories,
+            'allProducts' => $allProducts,
+        ])->layout('layouts.app');
     }
 }

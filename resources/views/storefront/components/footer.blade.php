@@ -36,41 +36,76 @@
             </div>
 
 
-            {{-- Store --}}
-            <div>
+            @php
+                $footerStoreMenu = \App\Models\Menu::getByLocation('footer_store');
+                $footerStoreItems = $footerStoreMenu?->rootItems ?? collect();
+                $footerLegalMenu = \App\Models\Menu::getByLocation('footer_legal');
+                $footerLegalItems = $footerLegalMenu?->rootItems ?? collect();
+            @endphp
 
+            {{-- Store Links --}}
+            <div>
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-white">
-                    Store
+                    {{ $footerStoreMenu?->name ?? 'Store' }}
                 </h3>
 
                 <ul class="mt-4 space-y-3 text-sm">
-
-                    <li>
-                        <a href="{{ route('storefront.home') }}" class="transition hover:text-white">
-                            Home
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#categories" class="transition hover:text-white">
-                            Categories
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="#products" class="transition hover:text-white">
-                            Products
-                        </a>
-                    </li>
-
+                    @if ($footerStoreItems->isNotEmpty())
+                        @foreach ($footerStoreItems as $item)
+                            <li>
+                                <a href="{{ $item->url }}" target="{{ $item->target }}" class="transition hover:text-white">
+                                    {{ $item->title }}
+                                </a>
+                            </li>
+                        @endforeach
+                    @else
+                        <li>
+                            <a href="{{ route('storefront.home') }}" class="transition hover:text-white">Home</a>
+                        </li>
+                        <li>
+                            <a href="{{ route('storefront.products.index') }}" class="transition hover:text-white">Products</a>
+                        </li>
+                        <li>
+                            <a href="{{ route('storefront.home') }}#categories" class="transition hover:text-white">Categories</a>
+                        </li>
+                    @endif
                 </ul>
-
             </div>
 
+            {{-- Legal & Info Links --}}
+            <div>
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-white">
+                    {{ $footerLegalMenu?->name ?? 'Information' }}
+                </h3>
+
+                <ul class="mt-4 space-y-3 text-sm">
+                    @if ($footerLegalItems->isNotEmpty())
+                        @foreach ($footerLegalItems as $item)
+                            <li>
+                                <a href="{{ $item->url }}" target="{{ $item->target }}" class="transition hover:text-white">
+                                    {{ $item->title }}
+                                </a>
+                            </li>
+                        @endforeach
+                    @else
+                        <li>
+                            <a href="/page/about-us" class="transition hover:text-white">About Us</a>
+                        </li>
+                        <li>
+                            <a href="/page/faq" class="transition hover:text-white">Help & FAQ</a>
+                        </li>
+                        <li>
+                            <a href="/page/privacy-policy" class="transition hover:text-white">Privacy Policy</a>
+                        </li>
+                        <li>
+                            <a href="/page/terms-conditions" class="transition hover:text-white">Terms & Conditions</a>
+                        </li>
+                    @endif
+                </ul>
+            </div>
 
             {{-- Support & Contact --}}
             <div>
-
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-white">
                     Support
                 </h3>
@@ -82,7 +117,6 @@
                 @endphp
 
                 <ul class="mt-4 space-y-3 text-sm">
-
                     @if ($contactEmail)
                         <li>
                             <a href="mailto:{{ $contactEmail }}" class="transition hover:text-white flex items-center gap-2">
@@ -114,9 +148,7 @@
                             <span>{{ $businessAddress }}</span>
                         </li>
                     @endif
-
                 </ul>
-
             </div>
 
         </div>
