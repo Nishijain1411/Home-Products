@@ -11,12 +11,15 @@ class Order extends Model
     protected $fillable = [
         'order_number',
         'customer_id',
+        'discount_id',
+        'coupon_code',
         'status',
         'payment_status',
         'payment_method',
         'payment_reference',
         'paid_at',
         'subtotal',
+        'discount_amount',
         'shipping_amount',
         'tax_amount',
         'total',
@@ -30,6 +33,7 @@ class Order extends Model
 
     protected $casts = [
         'subtotal' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'shipping_amount' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total' => 'decimal:2',
@@ -63,6 +67,11 @@ class Order extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function discount(): BelongsTo
+    {
+        return $this->belongsTo(Discount::class, 'discount_id');
     }
 
     public function items(): HasMany

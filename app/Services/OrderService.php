@@ -18,14 +18,16 @@ class OrderService
         array $shippingAddress,
         array $billingAddress,
         array $cart,
-        array $paymentData = []
+        array $paymentData = [],
+        ?string $couponCode = null
     ): Order {
         $order = DB::transaction(function () use (
             $customerData,
             $shippingAddress,
             $billingAddress,
             $cart,
-            $paymentData
+            $paymentData,
+            $couponCode
         ) {
             if (empty($cart)) {
                 throw new RuntimeException('Cart is empty.');
@@ -82,11 +84,6 @@ class OrderService
                 ];
             }
 
-            $settingService = app(SettingService::class);
-            $totals = $settingService->calculateTotals($subtotal);
-            $shippingAmount = $totals['shipping'];
-            $taxAmount = $totals['tax'];
-            $total = $totals['total'];
             $customerId = $customerData['customer_id'] ?? null;
 
             if (! $customerId) {
@@ -118,6 +115,33 @@ class OrderService
                     $customerId = $customer->id;
                 }
             }
+
+            $discountService = app(DiscountService::class);
+            $discount = null;
+            $discountAmount = 0.0;
+            $codeToApply = $couponCode ?? ($paymentData['coupon_code'] ?? ($customerData['coupon_code'] ?? ($discountService->getAppliedCoupon()['code'] ?? null)));
+
+            if ($codeToApply) {
+                $validation = $discountService->validateCode(
+                    $codeToApply,
+                    $subtotal,
+                    $customerId,
+                    $customerData['email'] ?? null
+                );
+
+                if (! $validation['valid']) {
+                    throw new RuntimeException($validation['message'] ?? 'Invalid coupon code.');
+                }
+
+                $discount = $validation['discount'];
+                $discountAmount = (float) $validation['discount_amount'];
+            }
+
+            $settingService = app(SettingService::class);
+            $totals = $settingService->calculateTotals($subtotal, $discountAmount);
+            $shippingAmount = $totals['shipping'];
+            $taxAmount = $totals['tax'];
+            $total = $totals['total'];
             $paymentMethod = $paymentData['method'] ?? 'cod';
             $paymentStatus = $paymentData['status'] ?? 'pending';
             $paymentReference = $paymentData['reference'] ?? null;
@@ -145,6 +169,9 @@ class OrderService
                 'status' => 'pending',
                 'payment_status' => $paymentStatus,
                 'subtotal' => $subtotal,
+                'discount_id' => $discount?->id,
+                'coupon_code' => $discount?->code,
+                'discount_amount' => $discountAmount,
                 'shipping_amount' => $shippingAmount,
                 'tax_amount' => $taxAmount,
                 'total' => $total,
@@ -159,6 +186,18 @@ class OrderService
             }
 
             $order = Order::create($orderAttributes);
+
+            if ($discount) {
+                $discountService->recordRedemption(
+                    $discount,
+                    $order,
+                    $discountAmount,
+                    $customerId,
+                    $customerData['email'] ?? null
+                );
+
+                $discountService->removeAppliedCoupon();
+            }
 
             foreach ($items as $item) {
 

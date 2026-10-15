@@ -228,24 +228,29 @@ class SettingService
     }
 
     /**
-     * Calculate all order totals including subtotal, shipping, tax, and grand total.
+     * Calculate all order totals including subtotal, discount, shipping, tax, and grand total.
      *
-     * @return array{subtotal: float, shipping: float, tax: float, tax_name: string, tax_rate: float, tax_inclusive: bool, total: float}
+     * @return array{subtotal: float, discount: float, discounted_subtotal: float, shipping: float, tax: float, tax_name: string, tax_rate: float, tax_inclusive: bool, total: float}
      */
-    public function calculateTotals(float $subtotal): array
+    public function calculateTotals(float $subtotal, float $discount = 0.0): array
     {
-        $shipping = $this->calculateShipping($subtotal);
-        $taxData = $this->calculateTax($subtotal, $shipping);
+        $discount = max(0.0, min($discount, $subtotal));
+        $discountedSubtotal = max(0.0, $subtotal - $discount);
+
+        $shipping = $this->calculateShipping($discountedSubtotal);
+        $taxData = $this->calculateTax($discountedSubtotal, $shipping);
 
         $taxAmount = $taxData['amount'];
         $inclusive = $taxData['inclusive'];
 
         $total = $inclusive
-            ? ($subtotal + $shipping)
-            : ($subtotal + $shipping + $taxAmount);
+            ? ($discountedSubtotal + $shipping)
+            : ($discountedSubtotal + $shipping + $taxAmount);
 
         return [
             'subtotal' => round($subtotal, 2),
+            'discount' => round($discount, 2),
+            'discounted_subtotal' => round($discountedSubtotal, 2),
             'shipping' => round($shipping, 2),
             'tax' => round($taxAmount, 2),
             'tax_name' => $taxData['name'],

@@ -3,7 +3,9 @@
 namespace App\Livewire\Storefront;
 
 use App\Services\CartService;
+use App\Services\DiscountService;
 use App\Services\SettingService;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class Cart extends Component
@@ -23,6 +25,12 @@ class Cart extends Component
     public bool $taxInclusive = false;
 
     public float $total = 0.0;
+
+    public string $couponCode = '';
+
+    public ?array $appliedCoupon = null;
+
+    public float $discountAmount = 0.0;
 
     public bool $hasStockIssues = false;
 
@@ -77,13 +85,74 @@ class Cart extends Component
         }
     }
 
+    public function applyCoupon(DiscountService $discountService, SettingService $settingService): void
+    {
+        $this->resetErrorBag('couponCode');
+        $code = trim($this->couponCode);
+
+        if ($code === '') {
+            $this->addError('couponCode', 'Please enter a coupon code.');
+
+            return;
+        }
+
+        $validation = $discountService->validateCode(
+            $code,
+            $this->subtotal,
+            Auth::id(),
+            Auth::user()?->email
+        );
+
+        if (! $validation['valid']) {
+            $this->addError('couponCode', $validation['message']);
+
+            return;
+        }
+
+        $discountService->setAppliedCoupon($validation['discount'], $validation['discount_amount']);
+        $this->couponCode = '';
+        $this->loadCart(app(CartService::class), $settingService);
+        session()->flash('cart_success', "Coupon '{$validation['discount']->code}' applied successfully!");
+    }
+
+    public function removeCoupon(DiscountService $discountService, SettingService $settingService): void
+    {
+        $discountService->removeAppliedCoupon();
+        $this->loadCart(app(CartService::class), $settingService);
+        session()->flash('cart_success', 'Coupon removed.');
+    }
+
     protected function loadCart(CartService $cartService, ?SettingService $settingService = null): void
     {
         $settingService ??= app(SettingService::class);
+        $discountService = app(DiscountService::class);
+
         $this->cart = $cartService->get();
         $this->subtotal = $cartService->subtotal();
 
-        $totals = $settingService->calculateTotals($this->subtotal);
+        $this->appliedCoupon = $discountService->getAppliedCoupon();
+        $this->discountAmount = 0.0;
+
+        if ($this->appliedCoupon) {
+            $validation = $discountService->validateCode(
+                $this->appliedCoupon['code'],
+                $this->subtotal,
+                Auth::id(),
+                Auth::user()?->email
+            );
+
+            if ($validation['valid']) {
+                $this->discountAmount = $validation['discount_amount'];
+                $discountService->setAppliedCoupon($validation['discount'], $this->discountAmount);
+                $this->appliedCoupon = $discountService->getAppliedCoupon();
+            } else {
+                $discountService->removeAppliedCoupon();
+                $this->appliedCoupon = null;
+                session()->flash('cart_error', 'Applied coupon was removed: '.$validation['message']);
+            }
+        }
+
+        $totals = $settingService->calculateTotals($this->subtotal, $this->discountAmount);
         $this->shippingFee = $totals['shipping'];
         $this->taxAmount = $totals['tax'];
         $this->taxName = $totals['tax_name'];

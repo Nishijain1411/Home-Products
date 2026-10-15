@@ -96,6 +96,18 @@
                 </span>
             </div>
 
+            @if ($order->discount_amount > 0)
+                <div class="mt-3 flex justify-between text-sm text-emerald-600 font-medium">
+                    <span>
+                        Discount ({{ $order->coupon_code ?? 'Coupon' }})
+                    </span>
+
+                    <span class="font-semibold">
+                        -{{ format_price($order->discount_amount) }}
+                    </span>
+                </div>
+            @endif
+
             <div class="mt-3 flex justify-between text-sm">
                 <span class="text-gray-600">
                     Shipping
