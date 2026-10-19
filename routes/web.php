@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\StorefrontController;
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Livewire\Admin\Analytics\Index as AnalyticsIndex;
 use App\Livewire\Admin\Categories\Create as CategoryCreate;
 use App\Livewire\Admin\Categories\Edit as CategoryEdit;
 use App\Livewire\Admin\Categories\Index as CategoryIndex;
@@ -39,15 +41,23 @@ require __DIR__.'/auth.php';
 Route::view('profile', 'profile')->middleware(['auth'])->name('profile');
 
 Route::get('/dashboard', function () {
-    return redirect()->route('admin.dashboard');
+    if (auth()->user()?->canAccessAdmin()) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    return redirect()->route('storefront.orders.index');
 })->middleware(['auth'])->name('dashboard');
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return redirect()->route('admin.dashboard');
+        if (auth()->user()?->canAccessAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return redirect()->route('storefront.home');
     }
 
-    return redirect()->route('login');
+    return redirect()->route('storefront.home');
 });
 /*
     |--------------------------------------------------------------------------
@@ -77,8 +87,9 @@ Route::name('storefront.')->group(function () {
 | DEFAULT AUTHENTICATED USER ROUTES
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', EnsureUserIsAdmin::class])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/analytics', AnalyticsIndex::class)->name('analytics.index');
     Route::get('/categories', CategoryIndex::class)->name('categories.index');
     Route::get('/categories/create', CategoryCreate::class)->name('categories.create');
     Route::get('/categories/{category}/edit', CategoryEdit::class)->name('categories.edit');

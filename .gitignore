@@ -6,6 +6,9 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/backups
+*.sql
+*.sqlite-journal
 /vendor
 .env
 .env.backup

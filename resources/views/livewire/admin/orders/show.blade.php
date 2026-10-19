@@ -367,6 +367,38 @@
 
             </div>
 
+            {{-- Status Audit Trail --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-6">
+                <h2 class="text-lg font-semibold text-gray-900">
+                    Status Audit Trail
+                </h2>
+
+                <div class="mt-4 space-y-3">
+                    @forelse ($order->statusHistories as $history)
+                        <div class="border-l-2 border-blue-500 pl-3 py-1 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-900">
+                                    {{ $history->from_status ? ucfirst($history->from_status) . ' → ' : '' }}{{ ucfirst($history->to_status) }}
+                                </span>
+                                <span class="text-gray-400">
+                                    {{ format_date($history->created_at, true) }}
+                                </span>
+                            </div>
+                            <p class="mt-1 text-gray-600">
+                                By: <span class="font-medium text-gray-800">{{ $history->user_name }}</span>
+                            </p>
+                            @if ($history->reason)
+                                <p class="text-gray-500 italic mt-0.5">
+                                    {{ $history->reason }}
+                                </p>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-400">No transition records found.</p>
+                    @endforelse
+                </div>
+            </div>
+
         </div>
 
     </div>

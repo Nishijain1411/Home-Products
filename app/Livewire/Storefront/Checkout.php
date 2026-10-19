@@ -78,6 +78,12 @@ class Checkout extends Component
 
     public string $upiId = '';
 
+    public ?string $gatewayTransactionId = null;
+
+    public ?string $gatewaySignature = null;
+
+    public ?string $gatewayOrderId = null;
+
     public function getEnabledPaymentMethods(): array
     {
         $methods = [];
@@ -90,6 +96,9 @@ class Checkout extends Component
         if ($this->enableUpi) {
             $methods[] = 'upi';
         }
+        $methods[] = 'razorpay';
+        $methods[] = 'gateway';
+        $methods[] = 'stripe';
 
         return $methods;
     }
@@ -343,6 +352,13 @@ class Checkout extends Component
                 ],
                 'upi' => [
                     'upiId' => $this->upiId,
+                ],
+                'gateway', 'razorpay', 'stripe' => [
+                    'transaction_id' => $this->gatewayTransactionId,
+                    'razorpay_payment_id' => $this->gatewayTransactionId,
+                    'razorpay_order_id' => $this->gatewayOrderId,
+                    'razorpay_signature' => $this->gatewaySignature,
+                    'signature' => $this->gatewaySignature,
                 ],
                 default => [],
             };

@@ -229,7 +229,13 @@
                         @foreach ($productImages as $index => $image)
                         <div wire:key="new-img-preview-{{ $index }}"
                             class="group relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
-                            <img src="{{ $image->temporaryUrl() }}" class="aspect-square w-full object-cover" alt="Preview">
+                            @if (method_exists($image, 'isPreviewable') && $image->isPreviewable())
+                                <img src="{{ $image->temporaryUrl() }}" class="aspect-square w-full object-cover" alt="Preview">
+                            @else
+                                <div class="aspect-square w-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs font-mono">
+                                    File
+                                </div>
+                            @endif
                             <button type="button" wire:click="removeProductImage({{ $index }})"
                                 class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm transition hover:bg-red-50 hover:text-red-600">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,33 +1,68 @@
 <div class="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
 
-    <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+    <div class="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
 
-        {{-- Success Icon --}}
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+        @if ($order->payment_status === 'paid')
+            {{-- Success Icon --}}
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
 
-            <svg
-                class="h-8 w-8 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                />
-            </svg>
+            <h1 class="mt-6 text-3xl font-bold text-gray-900">
+                Order Confirmed
+            </h1>
 
-        </div>
+            <p class="mt-3 text-gray-600">
+                Thank you for your order! Your payment has been verified and received.
+            </p>
+        @elseif ($order->payment_status === 'failed')
+            {{-- Failed Icon --}}
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <svg class="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </div>
 
-        <h1 class="mt-6 text-3xl font-bold text-gray-900">
-            Order Confirmed
-        </h1>
+            <h1 class="mt-6 text-3xl font-bold text-red-900">
+                Payment Failed
+            </h1>
 
-        <p class="mt-3 text-gray-600">
-            Thank you for your order.
-        </p>
+            <p class="mt-3 text-red-700">
+                We could not complete your payment. No funds were captured for this order.
+            </p>
+        @elseif ($order->payment_status === 'refunded')
+            {{-- Refunded Icon --}}
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
+                <svg class="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                </svg>
+            </div>
+
+            <h1 class="mt-6 text-3xl font-bold text-gray-900">
+                Order Refunded
+            </h1>
+
+            <p class="mt-3 text-gray-600">
+                This order has been cancelled and refunded to your original payment method.
+            </p>
+        @else
+            {{-- Pending / COD Icon --}}
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                <svg class="h-8 w-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+
+            <h1 class="mt-6 text-3xl font-bold text-gray-900">
+                Order Confirmed
+            </h1>
+
+            <p class="mt-3 text-gray-600">
+                Thank you for your order! Payment is pending (Cash on Delivery).
+            </p>
+        @endif
 
         <p class="mt-2 text-sm text-gray-500">
             Your order number is
@@ -42,9 +77,8 @@
 
     </div>
 
-
     {{-- Order Details --}}
-    <div class="mt-8 rounded-2xl border border-gray-200 bg-white p-6">
+    <div class="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
 
         <h2 class="text-lg font-semibold text-gray-900">
             Order Details
@@ -146,11 +180,13 @@
 
         </div>
 
+    </div>
+
     {{-- Order Summary & Payment Info --}}
     <div class="mt-8 grid gap-6 sm:grid-cols-2">
 
         {{-- Payment Details --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Payment Information
             </h3>
@@ -167,6 +203,14 @@
                         <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
                             Paid
                         </span>
+                    @elseif ($order->payment_status === 'failed')
+                        <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+                            Payment Failed
+                        </span>
+                    @elseif ($order->payment_status === 'refunded')
+                        <span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
+                            Refunded
+                        </span>
                     @else
                         <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
                             Pending (Pay on Delivery)
@@ -180,11 +224,18 @@
                         <span class="font-mono text-xs font-medium text-gray-800">{{ $order->payment_reference }}</span>
                     </div>
                 @endif
+
+                @if ($order->paid_at)
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Paid At:</span>
+                        <span class="text-xs text-gray-700">{{ format_date($order->paid_at, true) }}</span>
+                    </div>
+                @endif
             </div>
         </div>
 
         {{-- Delivery Address --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
             <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Delivery Address
             </h3>
@@ -203,13 +254,21 @@
 
     </div>
 
-
     {{-- Actions --}}
     <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
 
+        @if ($order->payment_status === 'failed')
+            <a
+                href="{{ route('storefront.checkout') }}"
+                class="rounded-xl bg-red-600 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-red-700 shadow-sm"
+            >
+                Retry Payment at Checkout
+            </a>
+        @endif
+
         <a
             href="{{ route('storefront.shop') }}"
-            class="rounded-xl bg-gray-900 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-blue-600"
+            class="rounded-xl bg-gray-900 px-6 py-3 text-center text-sm font-semibold text-white hover:bg-blue-600 shadow-sm"
         >
             Continue Shopping
         </a>

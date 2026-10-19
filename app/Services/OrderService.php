@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Inventory;
 use App\Models\Order;
+use App\Models\OrderStatusHistory;
+use App\Models\PaymentTransaction;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -36,24 +39,13 @@ class OrderService
             $subtotal = 0;
             $items = [];
 
+            // 1. Recheck stock atomically using row locking to prevent overselling under high concurrency
             foreach ($cart as $item) {
-
-                $variant = ProductVariant::with([
-                    'product',
-                    'inventory',
-                ])->find($item['variant_id']);
+                $variant = ProductVariant::with(['product'])->find($item['variant_id']);
 
                 if (! $variant) {
                     throw new RuntimeException(
                         'A product in your cart is no longer available.'
-                    );
-                }
-
-                $inventory = $variant->inventory;
-
-                if (! $inventory) {
-                    throw new RuntimeException(
-                        "Inventory is unavailable for {$variant->product->name}."
                     );
                 }
 
@@ -65,9 +57,20 @@ class OrderService
                     );
                 }
 
+                // Row lock inventory to prevent simultaneous checkout race conditions
+                $inventory = Inventory::where('product_variant_id', $variant->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $inventory) {
+                    throw new RuntimeException(
+                        "Inventory is unavailable for {$variant->product->name}."
+                    );
+                }
+
                 if ($inventory->quantity < $quantity) {
                     throw new RuntimeException(
-                        "Insufficient stock for {$variant->product->name}."
+                        "Insufficient stock for {$variant->product->name}. Only {$inventory->quantity} item(s) left."
                     );
                 }
 
@@ -94,9 +97,6 @@ class OrderService
                     if ($existingCustomer->hasRole('Customer')) {
                         $customerId = $existingCustomer->id;
                     }
-
-                    // Never link a guest order to an admin account
-                    // solely because the email address matches.
                 } else {
                     $customer = User::create([
                         'name' => trim(
@@ -187,6 +187,36 @@ class OrderService
 
             $order = Order::create($orderAttributes);
 
+            // Record initial order status history
+            OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'from_status' => null,
+                'to_status' => $order->status,
+                'user_id' => $customerId,
+                'user_name' => trim(($customerData['first_name'] ?? '').' '.($customerData['last_name'] ?? '')) ?: 'Customer',
+                'reason' => 'Order placed',
+            ]);
+
+            if ($paymentReference || $paymentStatus) {
+                PaymentTransaction::firstOrCreate(
+                    ['transaction_id' => $paymentReference ?: ('TXN-'.$order->order_number)],
+                    [
+                        'order_id' => $order->id,
+                        'gateway' => $paymentMethod,
+                        'amount' => $total,
+                        'currency' => 'INR',
+                        'status' => $paymentStatus,
+                        'signature_verified' => (bool) ($paymentData['signature_verified'] ?? ($paymentStatus === 'paid')),
+                        'metadata' => [
+                            'card_last4' => $paymentData['card_last4'] ?? null,
+                            'card_name' => $paymentData['card_name'] ?? null,
+                            'upi_id' => $paymentData['upi_id'] ?? null,
+                        ],
+                        'raw_payload' => $paymentData,
+                    ]
+                );
+            }
+
             if ($discount) {
                 $discountService->recordRedemption(
                     $discount,
@@ -199,8 +229,9 @@ class OrderService
                 $discountService->removeAppliedCoupon();
             }
 
-            foreach ($items as $item) {
+            $inventoryService = app(InventoryService::class);
 
+            foreach ($items as $item) {
                 $variant = $item['variant'];
 
                 $order->items()->create([
@@ -214,17 +245,12 @@ class OrderService
                     'total' => $item['total'],
                 ]);
 
-                /*
-                 * Reserve inventory.
-                 */
-                $variant->inventory()->decrement(
-                    'quantity',
-                    $item['quantity']
-                );
-
-                $variant->inventory()->increment(
-                    'reserved_quantity',
-                    $item['quantity']
+                // Atomically reserve and deduct stock via InventoryService
+                $inventoryService->reserveAndDeduct(
+                    $variant,
+                    $item['quantity'],
+                    $order->order_number,
+                    $customerId
                 );
             }
 

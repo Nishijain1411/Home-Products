@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Orders;
 
 use App\Models\Order;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -62,9 +63,7 @@ class Show extends Component
             return;
         }
 
-        $allowedTransitions = self::ALLOWED_TRANSITIONS[$currentStatus] ?? [];
-
-        if (! in_array($this->status, $allowedTransitions, true)) {
+        if (! $this->order->canTransitionTo($this->status)) {
             $this->status = $currentStatus;
 
             throw ValidationException::withMessages([
@@ -72,9 +71,15 @@ class Show extends Component
             ]);
         }
 
-        $this->order->update([
-            'status' => $this->status,
-        ]);
+        try {
+            $this->order->transitionTo($this->status, 'Admin updated status via dashboard', Auth::user());
+        } catch (\DomainException) {
+            $this->status = $currentStatus;
+
+            throw ValidationException::withMessages([
+                'status' => "Cannot change an order from {$currentStatus} to the requested status.",
+            ]);
+        }
 
         $this->order->refresh();
 

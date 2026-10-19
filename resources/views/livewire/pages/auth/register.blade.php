@@ -44,9 +44,13 @@ new #[Layout('layouts.guest')] class extends Component
 
         event(new Registered($user = User::create($validated)));
 
+        if (\Spatie\Permission\Models\Role::where('name', 'Customer')->exists()) {
+            $user->assignRole('Customer');
+        }
+
         Auth::login($user);
 
-        $this->redirect(route('admin.dashboard', absolute: false), navigate: true);
+        $this->redirect(route('storefront.home', absolute: false), navigate: true);
     }
 }; ?>
 

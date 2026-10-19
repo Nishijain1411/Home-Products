@@ -274,8 +274,7 @@ class SettingService
         $fromAddress = (string) $this->get('mail_from_address', config('mail.from.address'));
         $fromName = (string) $this->get('mail_from_name', config('mail.from.name', 'Custom Commerce'));
 
-        config([
-            'mail.default' => $driver,
+        $config = [
             'mail.mailers.smtp.host' => $host,
             'mail.mailers.smtp.port' => $port,
             'mail.mailers.smtp.encryption' => $encryption === 'none' ? null : $encryption,
@@ -283,7 +282,13 @@ class SettingService
             'mail.mailers.smtp.password' => $password,
             'mail.from.address' => $fromAddress ?: config('mail.from.address'),
             'mail.from.name' => $fromName ?: config('mail.from.name'),
-        ]);
+        ];
+
+        if (! app()->runningUnitTests()) {
+            $config['mail.default'] = $driver;
+        }
+
+        config($config);
     }
 
     /**
@@ -333,48 +338,8 @@ class SettingService
      */
     public function notifyOrderPlaced(Order $order): void
     {
-        $this->applyMailConfig();
-
-        $storeName = (string) $this->get('store_name', 'Custom Commerce');
-        $fromAddress = (string) $this->get('mail_from_address', config('mail.from.address', 'noreply@customcommerce.test'));
-        $fromName = (string) $this->get('mail_from_name', $storeName);
-
-        // 1. Customer order confirmation email
-        if (! empty($order->customer_email)) {
-            try {
-                $totalFormatted = $this->formatPrice((float) $order->total);
-                Mail::raw(
-                    "Hello {$order->customer_first_name},\n\nThank you for ordering with {$storeName}!\n\nOrder Number: {$order->order_number}\nOrder Total: {$totalFormatted}\nPayment Method: {$order->payment_method_label}\nStatus: Pending\n\nWe will notify you once your order has been dispatched.",
-                    function ($message) use ($order, $storeName, $fromAddress, $fromName) {
-                        $message->to($order->customer_email)
-                            ->from($fromAddress, $fromName)
-                            ->subject("[{$storeName}] Order Confirmation - #{$order->order_number}");
-                    }
-                );
-            } catch (\Throwable) {
-                // Silently avoid interrupting the order response
-            }
-        }
-
-        // 2. Admin new order alert
-        $notifyNewOrder = (bool) $this->get('notify_new_order', true);
-        $adminEmail = (string) $this->get('admin_notification_email', $this->get('contact_email', ''));
-
-        if ($notifyNewOrder && ! empty($adminEmail)) {
-            try {
-                $totalFormatted = $this->formatPrice((float) $order->total);
-                Mail::raw(
-                    "A new customer order has been placed on {$storeName}!\n\nOrder Number: {$order->order_number}\nCustomer: {$order->customer_first_name} {$order->customer_last_name} ({$order->customer_email})\nTotal: {$totalFormatted}\nPayment: {$order->payment_method_label}\n\nView details in your admin dashboard.",
-                    function ($message) use ($adminEmail, $order, $storeName, $fromAddress, $fromName) {
-                        $message->to($adminEmail)
-                            ->from($fromAddress, $fromName)
-                            ->subject("[{$storeName}] New Order Received - #{$order->order_number}");
-                    }
-                );
-            } catch (\Throwable) {
-                // Silently continue
-            }
-        }
+        // 1 & 2. Dispatch deduplicated customer order confirmation and admin alert
+        app(OrderNotificationService::class)->notifyOrderPlaced($order);
 
         // 3. API Webhook dispatch if enabled
         $apiEnabled = (bool) $this->get('enable_api_access', false);

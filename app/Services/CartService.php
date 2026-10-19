@@ -23,9 +23,23 @@ class CartService
                     ->orderBy('position')
                     ->first();
 
+                $currentPrice = (float) ($variant->effective_price ?? $variant->price ?? $variant->product->price);
+                $oldPrice = isset($item['price']) ? (float) $item['price'] : $currentPrice;
+
                 $item['product_name'] = $variant->product->name;
+                $item['title'] = $variant->title;
+                $item['sku'] = $variant->sku;
                 $item['image'] = $image?->path;
                 $item['available_stock'] = (int) ($variant->inventory?->quantity ?? 0);
+
+                if (abs($currentPrice - $oldPrice) > 0.001) {
+                    $item['price_changed'] = true;
+                    $item['previous_price'] = $oldPrice;
+                    $item['price'] = $currentPrice;
+                } else {
+                    $item['price_changed'] = false;
+                    $item['price'] = $currentPrice;
+                }
             } else {
                 $item['product_name'] ??= 'Product';
                 $item['image'] ??= null;
@@ -41,6 +55,30 @@ class CartService
         session()->put($this->sessionKey, $cart);
 
         return $cart;
+    }
+
+    /**
+     * Check if any cart item has experienced a price change since being added to cart.
+     *
+     * @return array<int, array{variant_id: int, product_name: string, previous_price: float, current_price: float}>
+     */
+    public function detectPriceChanges(): array
+    {
+        $cart = $this->get();
+        $changes = [];
+
+        foreach ($cart as $variantId => $item) {
+            if (! empty($item['price_changed']) && isset($item['previous_price'])) {
+                $changes[] = [
+                    'variant_id' => (int) $variantId,
+                    'product_name' => $item['product_name'],
+                    'previous_price' => (float) $item['previous_price'],
+                    'current_price' => (float) $item['price'],
+                ];
+            }
+        }
+
+        return $changes;
     }
 
     public function add(ProductVariant $variant, int $quantity = 1): void

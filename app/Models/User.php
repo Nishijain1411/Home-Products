@@ -73,4 +73,29 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class, 'customer_id');
     }
+
+    /**
+     * Determine if the user has authorization to access the administration area.
+     */
+    public function canAccessAdmin(): bool
+    {
+        if ($this->hasRole('Customer')) {
+            return false;
+        }
+
+        if ($this->roles()->exists()) {
+            return $this->hasAnyRole([
+                'Super Administrator',
+                'Store Administrator',
+                'Catalogue Manager',
+                'Order Manager',
+                'Marketing Manager',
+                'Content Manager',
+                'Customer Support',
+                'Reporting User',
+            ]);
+        }
+
+        return true;
+    }
 }

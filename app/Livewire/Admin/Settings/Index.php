@@ -301,7 +301,7 @@ class Index extends Component
             'state' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'max:20'],
             'country' => ['nullable', 'string', 'max:100'],
-            'new_store_logo' => ['nullable', 'image', 'max:2048'],
+            'new_store_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
         ]);
 
         if ($this->new_store_logo) {
