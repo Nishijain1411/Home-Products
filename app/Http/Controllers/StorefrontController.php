@@ -32,12 +32,12 @@ class StorefrontController extends Controller
 
         $selectedProductIds = array_filter($sections['products']['product_ids'] ?? []);
         if (! empty($selectedProductIds)) {
-            $products = Product::with('images')
+            $products = Product::with(['images', 'categories'])
                 ->whereIn('id', $selectedProductIds)
                 ->take($productsLimit)
                 ->get();
         } else {
-            $products = Product::with('images')
+            $products = Product::with(['images', 'categories'])
                 ->latest()
                 ->take($productsLimit)
                 ->get();

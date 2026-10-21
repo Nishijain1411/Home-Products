@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -72,6 +73,15 @@ class User extends Authenticatable
     public function orders()
     {
         return $this->hasMany(Order::class, 'customer_id');
+    }
+
+    /**
+     * Customer segments assigned to this user.
+     */
+    public function segments(): BelongsToMany
+    {
+        return $this->belongsToMany(CustomerSegment::class, 'customer_segment_user')
+            ->withTimestamps();
     }
 
     /**

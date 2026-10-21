@@ -97,7 +97,7 @@ class OrderService
                     if ($existingCustomer->hasRole('Customer')) {
                         $customerId = $existingCustomer->id;
                     }
-                } else {
+                } elseif (! (bool) app(SettingService::class)->get('guest_checkout', true) || ! empty($customerData['create_account'])) {
                     $customer = User::create([
                         'name' => trim(
                             $customerData['first_name'].' '.
@@ -126,7 +126,8 @@ class OrderService
                     $codeToApply,
                     $subtotal,
                     $customerId,
-                    $customerData['email'] ?? null
+                    $customerData['email'] ?? null,
+                    $cart
                 );
 
                 if (! $validation['valid']) {
@@ -166,7 +167,7 @@ class OrderService
                 'customer_first_name' => $customerData['first_name'],
                 'customer_last_name' => $customerData['last_name'],
 
-                'status' => 'pending',
+                'status' => $paymentStatus === 'paid' ? 'processing' : 'pending',
                 'payment_status' => $paymentStatus,
                 'subtotal' => $subtotal,
                 'discount_id' => $discount?->id,
@@ -223,7 +224,8 @@ class OrderService
                     $order,
                     $discountAmount,
                     $customerId,
-                    $customerData['email'] ?? null
+                    $customerData['email'] ?? null,
+                    $cart
                 );
 
                 $discountService->removeAppliedCoupon();

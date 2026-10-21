@@ -37,6 +37,11 @@ class Product extends Model
         return $this->belongsToMany(Category::class);
     }
 
+    public function discounts(): BelongsToMany
+    {
+        return $this->belongsToMany(Discount::class, 'discount_product');
+    }
+
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);

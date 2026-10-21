@@ -9,6 +9,7 @@ use App\Livewire\Admin\Categories\Edit as CategoryEdit;
 use App\Livewire\Admin\Categories\Index as CategoryIndex;
 use App\Livewire\Admin\Customers\Index as CustomerIndex;
 use App\Livewire\Admin\Customers\Show as CustomerShow;
+use App\Livewire\Admin\CustomerSegments\Index as CustomerSegmentIndex;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\Discounts\Create as DiscountCreate;
 use App\Livewire\Admin\Discounts\Edit as DiscountEdit;
@@ -104,6 +105,7 @@ Route::middleware(['auth', EnsureUserIsAdmin::class])->prefix('admin')->name('ad
     Route::get('/discounts/{discount}/edit', DiscountEdit::class)->name('discounts.edit');
     Route::get('/customers', CustomerIndex::class)->name('customers.index');
     Route::get('/customers/{customerId}', CustomerShow::class)->name('customers.show');
+    Route::get('/customer-segments', CustomerSegmentIndex::class)->name('customer-segments.index');
     Route::get('/inventory', InventoryIndex::class)->name('inventory.index');
     Route::get('/inventory/history', InventoryHistory::class)->name('inventory.history');
     Route::get('/pages', PageIndex::class)->name('pages.index');

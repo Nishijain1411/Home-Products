@@ -66,9 +66,12 @@ class PaymentWebhookController extends Controller
         }
 
         // 3. Idempotency Check: Prevent duplicate webhooks from reprocessing
-        $existing = PaymentTransaction::where('transaction_id', $transactionId)
-            ->when($eventId, fn ($q) => $q->orWhere('event_id', $eventId))
-            ->first();
+        $existing = PaymentTransaction::where(function ($query) use ($transactionId, $eventId) {
+            $query->where('transaction_id', $transactionId);
+            if ($eventId) {
+                $query->orWhere('event_id', $eventId);
+            }
+        })->where('status', 'paid')->first();
 
         if ($existing) {
             return response()->json([
@@ -145,23 +148,25 @@ class PaymentWebhookController extends Controller
                 $order->markAsRefunded($transactionId, $amount, $payload);
             }
 
-            // Record transaction record
-            $transaction = PaymentTransaction::create([
-                'order_id' => $order->id,
-                'gateway' => $gateway,
-                'transaction_id' => $transactionId,
-                'event_id' => $eventId,
-                'event_type' => $eventType,
-                'amount' => $amount ?: $order->total,
-                'currency' => $currency ?: 'INR',
-                'status' => $status,
-                'signature_verified' => true,
-                'metadata' => [
-                    'order_number' => $order->order_number,
-                    'customer_email' => $order->customer_email,
-                ],
-                'raw_payload' => $payload,
-            ]);
+            // Record or update transaction record
+            $transaction = PaymentTransaction::updateOrCreate(
+                ['transaction_id' => $transactionId],
+                [
+                    'order_id' => $order->id,
+                    'gateway' => $gateway,
+                    'event_id' => $eventId,
+                    'event_type' => $eventType,
+                    'amount' => $amount ?: $order->total,
+                    'currency' => $currency ?: 'INR',
+                    'status' => $status,
+                    'signature_verified' => true,
+                    'metadata' => [
+                        'order_number' => $order->order_number,
+                        'customer_email' => $order->customer_email,
+                    ],
+                    'raw_payload' => $payload,
+                ]
+            );
 
             // If payment succeeded, notify customer and merchant
             if ($status === 'paid') {

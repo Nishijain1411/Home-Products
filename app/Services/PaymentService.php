@@ -4,11 +4,26 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\PaymentTransaction;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class PaymentService
 {
+    /**
+     * Get gateway public/publishable key from config/settings.
+     */
+    public function getGatewayKey(string $gateway = 'razorpay'): string
+    {
+        $settingService = app(SettingService::class);
+
+        return match (strtolower($gateway)) {
+            'razorpay' => (string) ($settingService->get('razorpay_key_id', config('services.razorpay.key', 'rzp_test_key'))),
+            'stripe' => (string) ($settingService->get('stripe_key', config('services.stripe.key', 'pk_test_key'))),
+            default => '',
+        };
+    }
+
     /**
      * Get webhook secret or gateway secret key from config/settings.
      */
@@ -225,6 +240,119 @@ class PaymentService
         ];
     }
 
+    /**
+     * Create an order on Razorpay using standard REST API.
+     *
+     * @param  float  $amount  Amount in major currency units (e.g. 500.00)
+     * @param  string  $receipt  Unique merchant receipt identifier
+     * @param  string  $currency  Currency code (default INR)
+     * @param  array  $notes  Custom key-value metadata notes
+     * @return array Razorpay order JSON response
+     */
+    public function createRazorpayOrder(float $amount, string $receipt, string $currency = 'INR', array $notes = []): array
+    {
+        $settingService = app(SettingService::class);
+        $keyId = (string) ($settingService->get('razorpay_key_id', config('services.razorpay.key', 'rzp_test_key')));
+        $keySecret = (string) ($settingService->get('razorpay_key_secret', config('services.razorpay.secret', 'rzp_test_secret_key')));
+        $mode = (string) ($settingService->get('razorpay_mode', 'test'));
+
+        if (empty($keyId) || empty($keySecret)) {
+            throw new RuntimeException('Razorpay API keys are not configured. Please set Key ID and Key Secret in store settings (Admin > Settings > Payment).');
+        }
+
+        $amountInPaise = (int) round($amount * 100);
+
+        if ($amountInPaise <= 0) {
+            throw new RuntimeException('Invalid order amount for Razorpay order creation.');
+        }
+
+        $isPlaceholder = in_array(strtolower(trim($keyId)), ['rzp_test_key', 'rzp_test_placeholder', ''])
+            || in_array(strtolower(trim($keySecret)), ['rzp_test_secret_key', 'rzp_test_placeholder', '']);
+
+        // When in Test Mode with default placeholder credentials, use seamless test sandbox simulation
+        if ($mode === 'test' && $isPlaceholder) {
+            return [
+                'id' => 'order_sim_'.strtoupper(Str::random(14)),
+                'entity' => 'order',
+                'amount' => $amountInPaise,
+                'amount_paid' => 0,
+                'amount_due' => $amountInPaise,
+                'currency' => strtoupper($currency),
+                'receipt' => Str::limit($receipt, 40, ''),
+                'status' => 'created',
+                'attempts' => 0,
+                'notes' => $notes,
+                'created_at' => now()->timestamp,
+                'is_simulated' => true,
+            ];
+        }
+
+        $payload = [
+            'amount' => $amountInPaise,
+            'currency' => strtoupper($currency),
+            'receipt' => Str::limit($receipt, 40, ''),
+            'notes' => $notes,
+        ];
+
+        $response = Http::withBasicAuth($keyId, $keySecret)
+            ->timeout(15)
+            ->post('https://api.razorpay.com/v1/orders', $payload);
+
+        if (! $response->successful()) {
+            if ($response->status() === 401) {
+                throw new RuntimeException('Razorpay Authentication Failed: The Key ID or Key Secret configured in Admin Settings > Payment is invalid or expired. Please verify your keys in your Razorpay Dashboard (dashboard.razorpay.com).');
+            }
+
+            $errorMessage = $response->json('error.description')
+                ?? $response->json('message')
+                ?? "Razorpay order creation failed with status {$response->status()}.";
+
+            throw new RuntimeException($errorMessage);
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Fetch order details from Razorpay API.
+     */
+    public function fetchRazorpayOrder(string $orderId): array
+    {
+        $settingService = app(SettingService::class);
+        $keyId = (string) ($settingService->get('razorpay_key_id', config('services.razorpay.key', 'rzp_test_key')));
+        $keySecret = (string) ($settingService->get('razorpay_key_secret', config('services.razorpay.secret', 'rzp_test_secret_key')));
+
+        $response = Http::withBasicAuth($keyId, $keySecret)
+            ->timeout(10)
+            ->get("https://api.razorpay.com/v1/orders/{$orderId}");
+
+        if (! $response->successful()) {
+            throw new RuntimeException($response->json('error.description') ?? 'Failed to fetch Razorpay order.');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Fetch payment details from Razorpay API.
+     */
+    public function fetchRazorpayPayment(string $paymentId): array
+    {
+        $settingService = app(SettingService::class);
+        $keyId = (string) ($settingService->get('razorpay_key_id', config('services.razorpay.key', 'rzp_test_key')));
+        $keySecret = (string) ($settingService->get('razorpay_key_secret', config('services.razorpay.secret', 'rzp_test_secret_key')));
+
+        $response = Http::withBasicAuth($keyId, $keySecret)
+            ->timeout(10)
+            ->get("https://api.razorpay.com/v1/payments/{$paymentId}");
+
+        if (! $response->successful()) {
+            throw new RuntimeException($response->json('error.description') ?? 'Failed to fetch Razorpay payment.');
+        }
+
+        return $response->json();
+    }
+
     protected function processGatewayVerification(string $gateway, float $amount, array $details): array
     {
         $transactionId = $details['transaction_id'] ?? $details['razorpay_payment_id'] ?? null;
@@ -233,20 +361,34 @@ class PaymentService
             throw new RuntimeException('Payment gateway transaction ID is required.');
         }
 
-        $verified = $this->verifyPaymentSignature($gateway, $details);
+        $hasSignature = ! empty($details['signature']) || ! empty($details['razorpay_signature']);
 
-        if (! $verified) {
-            throw new RuntimeException('Payment signature verification failed. The transaction could not be authenticated.');
+        if ($hasSignature) {
+            $verified = $this->verifyPaymentSignature($gateway, $details);
+
+            if (! $verified) {
+                throw new RuntimeException('Payment signature verification failed. The transaction could not be authenticated.');
+            }
+
+            return [
+                'success' => true,
+                'method' => $gateway,
+                'method_label' => ucfirst($gateway).' Gateway',
+                'status' => 'paid',
+                'reference' => $transactionId,
+                'signature_verified' => true,
+                'paid_at' => now(),
+            ];
         }
 
         return [
             'success' => true,
             'method' => $gateway,
             'method_label' => ucfirst($gateway).' Gateway',
-            'status' => 'paid',
+            'status' => 'pending',
             'reference' => $transactionId,
-            'signature_verified' => true,
-            'paid_at' => now(),
+            'signature_verified' => false,
+            'paid_at' => null,
         ];
     }
 }

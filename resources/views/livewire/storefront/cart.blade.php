@@ -204,11 +204,11 @@
             </div>
 
             {{-- Summary --}}
-            <div>
+            <div class="lg:col-span-1">
 
-                <div class="rounded-2xl border border-gray-200 bg-white p-6">
+                <div class="sticky top-28 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-xs">
 
-                    <h2 class="text-lg font-semibold text-gray-900">
+                    <h2 class="text-lg font-bold text-gray-900">
                         Order Summary
                     </h2>
 
@@ -221,7 +221,7 @@
                         <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 text-xs">
                             @if ($subtotal >= $freeShippingThreshold)
                                 <div class="flex items-center gap-2 font-medium text-green-700">
-                                    <svg class="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg class="h-4 w-4 shrink-0 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                                     </svg>
                                     <span>You unlocked <strong>Free Shipping</strong>!</span>
@@ -238,7 +238,7 @@
                     @endif
 
                     {{-- Coupon / Promo Code --}}
-                    <div class="mt-4 border-b border-gray-200 pb-4">
+                    <div class="mt-4 border-b border-gray-100 pb-4">
                         @if ($appliedCoupon)
                             <div class="flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2.5">
                                 <div class="flex items-center gap-2 min-w-0">
@@ -260,19 +260,19 @@
                             </div>
                         @else
                             <form wire:submit.prevent="applyCoupon" class="space-y-1.5">
-                                <label for="cartCouponCode" class="block text-xs font-medium text-gray-700">Have a coupon code?</label>
+                                <label for="cartCouponCode" class="block text-xs font-semibold uppercase tracking-wider text-gray-500">Have a promo code?</label>
                                 <div class="flex gap-2">
                                     <input
                                         type="text"
                                         id="cartCouponCode"
                                         wire:model="couponCode"
-                                        placeholder="Enter code (e.g. SAVE10)"
-                                        class="block w-full uppercase rounded-lg border-gray-300 text-xs shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-3"
+                                        placeholder="Enter code"
+                                        class="block w-full uppercase rounded-xl border border-gray-200 text-xs shadow-xs focus:border-blue-500 focus:ring-2 focus:ring-blue-100 py-2.5 px-3 outline-none transition"
                                     >
                                     <button
                                         type="submit"
                                         wire:loading.attr="disabled"
-                                        class="rounded-lg bg-gray-900 px-3.5 py-2 text-xs font-semibold text-white hover:bg-gray-800 transition shrink-0 disabled:opacity-50"
+                                        class="rounded-xl bg-gray-900 px-4 py-2.5 text-xs font-bold text-white hover:bg-gray-800 transition shrink-0 disabled:opacity-50"
                                     >
                                         Apply
                                     </button>
@@ -284,10 +284,10 @@
                         @endif
                     </div>
 
-                    <div class="mt-4 space-y-3 border-b border-gray-200 pb-4 text-sm">
+                    <div class="mt-4 space-y-3 border-b border-gray-100 pb-4 text-sm">
                         <div class="flex items-center justify-between">
-                            <span class="text-gray-600">Subtotal</span>
-                            <span class="font-semibold text-gray-900">{{ format_price($subtotal) }}</span>
+                            <span class="text-gray-500">Subtotal</span>
+                            <span class="font-bold text-gray-900">{{ format_price($subtotal) }}</span>
                         </div>
 
                         @if ($discountAmount > 0)
@@ -295,40 +295,40 @@
                                 <span class="flex items-center gap-1">
                                     <span>Discount ({{ $appliedCoupon['code'] ?? 'Coupon' }})</span>
                                 </span>
-                                <span class="font-semibold">-{{ format_price($discountAmount) }}</span>
+                                <span class="font-bold">-{{ format_price($discountAmount) }}</span>
                             </div>
                         @endif
 
                         <div class="flex items-center justify-between">
-                            <span class="text-gray-600">Estimated Shipping</span>
+                            <span class="text-gray-500">Estimated Shipping</span>
                             @if ($shippingFee <= 0)
-                                <span class="font-semibold text-green-600">Free</span>
+                                <span class="font-bold text-emerald-600">Free</span>
                             @else
-                                <span class="font-semibold text-gray-900">{{ format_price($shippingFee) }}</span>
+                                <span class="font-bold text-gray-900">{{ format_price($shippingFee) }}</span>
                             @endif
                         </div>
 
                         @if ($taxAmount > 0)
                             @if ($taxInclusive)
-                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                <div class="flex items-center justify-between text-xs text-gray-400">
                                     <span>Includes {{ $taxName }} ({{ $taxRate }}%)</span>
                                     <span class="font-medium text-gray-700">{{ format_price($taxAmount) }}</span>
                                 </div>
                             @else
                                 <div class="flex items-center justify-between">
-                                    <span class="text-gray-600">{{ $taxName }} ({{ $taxRate }}%)</span>
-                                    <span class="font-semibold text-gray-900">{{ format_price($taxAmount) }}</span>
+                                    <span class="text-gray-500">{{ $taxName }} ({{ $taxRate }}%)</span>
+                                    <span class="font-bold text-gray-900">{{ format_price($taxAmount) }}</span>
                                 </div>
                             @endif
                         @endif
                     </div>
 
-                    <div class="mt-4 flex items-center justify-between">
-                        <span class="text-base font-semibold text-gray-900">
+                    <div class="mt-4 mb-6 flex items-center justify-between">
+                        <span class="text-base font-bold text-gray-900">
                             Estimated Total
                         </span>
 
-                        <span class="text-xl font-bold text-gray-900">
+                        <span class="text-2xl font-black text-gray-900">
                             {{ format_price($total) }}
                         </span>
                     </div>
@@ -337,7 +337,7 @@
                         <button
                             type="button"
                             wire:click="autoAdjustStock"
-                            class="block w-full rounded-lg bg-amber-600 px-4 py-3 text-center font-semibold text-white hover:bg-amber-700 transition"
+                            class="block w-full rounded-xl bg-amber-600 px-4 py-3.5 text-center text-sm font-bold text-white shadow-sm hover:bg-amber-700 transition"
                         >
                             Adjust Stock to Checkout
                         </button>
@@ -347,18 +347,29 @@
                     @else
                         <a
                             href="{{ route('storefront.checkout') }}"
-                            class="block w-full rounded-lg bg-blue-600 px-4 py-3 text-center font-semibold text-white hover:bg-blue-700 transition"
+                            class="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-4 py-3.5 text-center text-sm font-bold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+                            style="background-color: var(--store-primary, #2563eb);"
                         >
-                            Proceed to Checkout
+                            <span class="relative z-10">Proceed to Checkout</span>
+                            <svg class="relative z-10 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                            <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full"></div>
                         </a>
                     @endif
 
                     <a
                         href="{{ route('storefront.shop') }}"
-                        class="mt-3 block text-center text-sm font-medium text-gray-600 hover:text-gray-900"
+                        class="mt-3 block text-center text-xs font-semibold text-gray-500 hover:text-gray-900 transition"
                     >
-                        Continue Shopping
+                        &larr; Continue Shopping
                     </a>
+
+                    <div class="mt-5 border-t border-gray-100 pt-4 text-center text-[11px] text-gray-400 flex items-center justify-center gap-2">
+                        <span>🔒 Encrypted Checkout</span>
+                        <span>•</span>
+                        <span>Razorpay & Cards</span>
+                    </div>
 
                 </div>
 

@@ -134,6 +134,32 @@
                                 @if ($discount->description)
                                     <div class="text-xs text-gray-500 line-clamp-1 mt-0.5">{{ $discount->description }}</div>
                                 @endif
+
+                                <div class="flex flex-wrap gap-1 mt-1.5">
+                                    @if ($discount->customer_eligibility === 'segments')
+                                        <span class="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 border border-indigo-200">
+                                            {{ $discount->customerSegments->pluck('name')->implode(', ') ?: 'Specific Segments' }}
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500 border border-gray-100">
+                                            All Customers
+                                        </span>
+                                    @endif
+
+                                    @if ($discount->applies_to === 'categories')
+                                        <span class="inline-flex items-center rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 border border-purple-200">
+                                            {{ $discount->categories->count() }} {{ \Illuminate\Support\Str::plural('Category', $discount->categories->count()) }}
+                                        </span>
+                                    @elseif ($discount->applies_to === 'products')
+                                        <span class="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
+                                            {{ $discount->products->count() }} {{ \Illuminate\Support\Str::plural('Product', $discount->products->count()) }}
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500 border border-gray-100">
+                                            All Products
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
 
                             <td class="px-6 py-4 whitespace-nowrap">

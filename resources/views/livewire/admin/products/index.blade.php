@@ -54,7 +54,7 @@
     {{-- Alerts & Notifications --}}
     @php
         $displaySuccess = $successMessage ?? session('success');
-        $displayError = session('error');
+        $displayError = $errorMessage ?? session('error');
     @endphp
 
     {{-- Floating Toast Notification --}}
@@ -143,17 +143,200 @@
     </div>
     @endif
 
-    {{-- Search --}}
-    <div class="mb-5 rounded-lg bg-white p-4 shadow-sm">
+    {{-- Search and Filters Bar --}}
+    <div class="mb-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 items-center">
 
-        <div class="relative max-w-md">
+            {{-- Search Input (spans 2 columns on large screens) --}}
+            <div class="relative sm:col-span-2 lg:col-span-2">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search by name, SKU, or slug..."
+                    class="w-full rounded-lg border border-gray-300 bg-white pl-9 pr-4 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400">
+            </div>
 
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search products..."
-                class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500">
+            {{-- Status Filter --}}
+            <div>
+                <select wire:model.live="statusFilter"
+                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+
+            {{-- Category Filter --}}
+            <div>
+                <select wire:model.live="categoryFilter"
+                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Categories</option>
+                    @foreach ($categories as $parentCat)
+                        <option value="{{ $parentCat->id }}">{{ $parentCat->name }}</option>
+                        @if ($parentCat->children && $parentCat->children->count())
+                            @foreach ($parentCat->children as $childCat)
+                                <option value="{{ $childCat->id }}">&nbsp;&nbsp;↳ {{ $childCat->name }}</option>
+                            @endforeach
+                        @endif
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Stock Filter --}}
+            <div>
+                <select wire:model.live="stockFilter"
+                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Stock</option>
+                    <option value="in_stock">In Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                </select>
+            </div>
+
+            {{-- Featured Filter --}}
+            <div>
+                <select wire:model.live="featuredFilter"
+                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <option value="">All Types</option>
+                    <option value="featured">Featured Only</option>
+                    <option value="standard">Standard Only</option>
+                </select>
+            </div>
 
         </div>
 
+        {{-- Active Filters indicator and Reset button --}}
+        @if ($this->hasActiveFilters)
+            <div class="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 dark:border-gray-700">
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">Active filters:</span>
+                    @if ($search)
+                        <span class="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                            Search: "{{ $search }}"
+                        </span>
+                    @endif
+                    @if ($statusFilter !== '')
+                        <span class="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                            Status: {{ ucfirst($statusFilter) }}
+                        </span>
+                    @endif
+                    @if ($categoryFilter !== '')
+                        @php
+                            $catModel = \App\Models\Category::find($categoryFilter);
+                        @endphp
+                        @if ($catModel)
+                            <span class="inline-flex items-center gap-1 rounded bg-purple-50 px-2 py-0.5 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                                Category: {{ $catModel->name }}
+                            </span>
+                        @endif
+                    @endif
+                    @if ($stockFilter !== '')
+                        <span class="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                            Stock: {{ $stockFilter === 'in_stock' ? 'In Stock' : 'Out of Stock' }}
+                        </span>
+                    @endif
+                    @if ($featuredFilter !== '')
+                        <span class="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                            {{ $featuredFilter === 'featured' ? 'Featured Only' : 'Standard Only' }}
+                        </span>
+                    @endif
+                </div>
+
+                <button type="button" wire:click="resetFilters"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-800 transition dark:text-red-400 dark:hover:text-red-300">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Reset Filters
+                </button>
+            </div>
+        @endif
     </div>
+
+    {{-- Bulk Actions Toolbar --}}
+    @if (count($selected) > 0)
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-3 shadow-xs dark:border-blue-900/50 dark:bg-blue-950/20">
+        <div class="flex items-center gap-2">
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-xs font-bold text-white shadow-xs">
+                {{ count($selected) }}
+            </span>
+            <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                {{ count($selected) }} {{ \Illuminate\Support\Str::plural('product', count($selected)) }} selected
+            </span>
+            @if ($selectAll)
+                <span class="rounded bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                    All on page
+                </span>
+            @endif
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- Bulk Activate --}}
+            <button
+                type="button"
+                wire:click="bulkActivate"
+                wire:loading.attr="disabled"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-2xs hover:bg-emerald-50 dark:border-emerald-800 dark:bg-gray-800 dark:text-emerald-400 dark:hover:bg-emerald-950/30 transition disabled:opacity-50"
+            >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Activate
+            </button>
+
+            {{-- Bulk Deactivate --}}
+            <button
+                type="button"
+                wire:click="bulkDeactivate"
+                wire:loading.attr="disabled"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-2xs hover:bg-amber-50 dark:border-amber-800 dark:bg-gray-800 dark:text-amber-400 dark:hover:bg-amber-950/30 transition disabled:opacity-50"
+            >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                Deactivate
+            </button>
+
+            {{-- Bulk Assign Category --}}
+            <button
+                type="button"
+                wire:click="openBulkCategoryModal"
+                wire:loading.attr="disabled"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-purple-300 bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-2xs hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-800 dark:text-purple-400 dark:hover:bg-purple-950/30 transition disabled:opacity-50"
+            >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Assign Category
+            </button>
+
+            {{-- Bulk Delete --}}
+            <button
+                type="button"
+                wire:click="confirmBulkDelete"
+                wire:loading.attr="disabled"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 shadow-2xs hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-950/30 transition disabled:opacity-50"
+            >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Selected
+            </button>
+
+            <span class="h-4 w-px bg-gray-300 dark:bg-gray-700"></span>
+
+            {{-- Deselect All --}}
+            <button
+                type="button"
+                wire:click="clearSelection"
+                class="text-xs font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition"
+            >
+                Deselect all
+            </button>
+        </div>
+    </div>
+    @endif
 
     {{-- Products Table --}}
     <div class="overflow-hidden rounded-lg bg-white shadow-sm">
@@ -165,6 +348,15 @@
                 <thead class="bg-gray-50">
 
                     <tr>
+
+                        <th class="w-10 px-4 py-3 text-center">
+                            <input
+                                type="checkbox"
+                                wire:model.live="selectAll"
+                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                title="Select all on this page"
+                            />
+                        </th>
 
                         <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                             Product
@@ -199,7 +391,17 @@
 
                     @forelse ($products as $product)
 
-                    <tr wire:key="product-{{ $product->id }}">
+                    <tr wire:key="product-{{ $product->id }}" class="transition {{ in_array((string)$product->id, array_map('strval', $selected), true) ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50/50' }}">
+
+                        {{-- Checkbox --}}
+                        <td class="w-10 px-4 py-4 text-center">
+                            <input
+                                type="checkbox"
+                                wire:model.live="selected"
+                                value="{{ $product->id }}"
+                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                        </td>
 
                         {{-- Product --}}
                         <td class="px-6 py-4">
@@ -336,7 +538,7 @@
 
                     <tr>
 
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="7" class="px-6 py-12 text-center">
 
                             <div class="flex flex-col items-center justify-center">
 
@@ -1523,6 +1725,191 @@
                         </svg>
                         Importing...
                     </span>
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Bulk Category & Status Assignment Modal --}}
+    @if ($showBulkCategoryModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl dark:bg-gray-800">
+            <div class="flex items-center justify-between border-b px-6 py-4 dark:border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Assign Category & Update Status
+                        </h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Applying to {{ count($selected) }} {{ \Illuminate\Support\Str::plural('product', count($selected)) }} selected
+                        </p>
+                    </div>
+                </div>
+                <button type="button" wire:click="closeBulkCategoryModal" class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="max-h-[70vh] overflow-y-auto p-6 space-y-5">
+                {{-- Categories Selection --}}
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-semibold text-gray-900 dark:text-white">
+                            Select Categories <span class="text-red-500">*</span>
+                        </label>
+                        <span class="text-xs text-purple-600 font-medium dark:text-purple-400">
+                            {{ count($bulkCategoryIds) }} selected
+                        </span>
+                    </div>
+
+                    <div class="max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2 dark:border-gray-700 dark:bg-gray-900/40">
+                        @forelse ($categories as $parentCat)
+                            <div class="space-y-1">
+                                <label class="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-white dark:hover:bg-gray-800 cursor-pointer">
+                                    <input type="checkbox" wire:model="bulkCategoryIds" value="{{ $parentCat->id }}"
+                                        class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $parentCat->name }}</span>
+                                </label>
+
+                                @if ($parentCat->children && $parentCat->children->count())
+                                    <div class="ml-6 space-y-1 border-l-2 border-gray-200 pl-2 dark:border-gray-700">
+                                        @foreach ($parentCat->children as $childCat)
+                                            <label class="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-white dark:hover:bg-gray-800 cursor-pointer">
+                                                <input type="checkbox" wire:model="bulkCategoryIds" value="{{ $childCat->id }}"
+                                                    class="h-3.5 w-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                                <span class="text-xs text-gray-700 dark:text-gray-300">{{ $childCat->name }}</span>
+                                                <span class="text-[10px] text-gray-400">sub</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="text-xs text-gray-500 text-center py-4">No active categories found.</p>
+                        @endforelse
+                    </div>
+
+                    @error('bulkCategoryIds')
+                        <p class="mt-1 text-xs text-red-600 font-medium">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Category Assignment Mode --}}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2 dark:text-white">
+                        Assignment Mode
+                    </label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <label class="relative flex cursor-pointer rounded-lg border p-3 shadow-xs focus:outline-none {{ $bulkCategoryMode === 'append' ? 'border-purple-600 bg-purple-50/50 dark:border-purple-500 dark:bg-purple-950/20' : 'border-gray-200 dark:border-gray-700' }}">
+                            <input type="radio" wire:model.live="bulkCategoryMode" value="append" class="sr-only">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                                    <span class="h-2 w-2 rounded-full {{ $bulkCategoryMode === 'append' ? 'bg-purple-600' : 'bg-gray-300' }}"></span>
+                                    Add to Existing
+                                </span>
+                                <span class="text-[11px] text-gray-500 mt-0.5">Keeps current categories & appends selected</span>
+                            </div>
+                        </label>
+
+                        <label class="relative flex cursor-pointer rounded-lg border p-3 shadow-xs focus:outline-none {{ $bulkCategoryMode === 'replace' ? 'border-purple-600 bg-purple-50/50 dark:border-purple-500 dark:bg-purple-950/20' : 'border-gray-200 dark:border-gray-700' }}">
+                            <input type="radio" wire:model.live="bulkCategoryMode" value="replace" class="sr-only">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                                    <span class="h-2 w-2 rounded-full {{ $bulkCategoryMode === 'replace' ? 'bg-purple-600' : 'bg-gray-300' }}"></span>
+                                    Replace Existing
+                                </span>
+                                <span class="text-[11px] text-gray-500 mt-0.5">Replaces all categories with selected</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Status Update Option --}}
+                <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-2 dark:text-white">
+                        Update Status (Optional)
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium cursor-pointer transition {{ $bulkStatusMode === 'keep' ? 'border-gray-900 bg-gray-900 text-white dark:border-white dark:bg-white dark:text-gray-900' : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300' }}">
+                            <input type="radio" wire:model.live="bulkStatusMode" value="keep" class="sr-only">
+                            <span>Keep Current</span>
+                        </label>
+
+                        <label class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium cursor-pointer transition {{ $bulkStatusMode === 'active' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-400' }}">
+                            <input type="radio" wire:model.live="bulkStatusMode" value="active" class="sr-only">
+                            <span>Set Active</span>
+                        </label>
+
+                        <label class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium cursor-pointer transition {{ $bulkStatusMode === 'inactive' ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-400' }}">
+                            <input type="radio" wire:model.live="bulkStatusMode" value="inactive" class="sr-only">
+                            <span>Set Inactive</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/80">
+                <button type="button" wire:click="closeBulkCategoryModal"
+                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                    Cancel
+                </button>
+
+                <button type="button" wire:click="bulkAssignCategory" wire:loading.attr="disabled"
+                    class="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 shadow-sm disabled:opacity-50">
+                    <span wire:loading.remove wire:target="bulkAssignCategory">Apply Changes</span>
+                    <span wire:loading wire:target="bulkAssignCategory" class="inline-flex items-center gap-1.5">
+                        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                        </svg>
+                        Applying...
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- Bulk Delete Confirmation Modal --}}
+    @if ($showBulkDeleteModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl dark:bg-gray-800">
+            <div class="p-6">
+                <div class="flex items-center gap-3 text-red-600 mb-2">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        Delete {{ count($selected) }} {{ \Illuminate\Support\Str::plural('Product', count($selected)) }}
+                    </h2>
+                </div>
+
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    Are you sure you want to permanently delete the <strong>{{ count($selected) }}</strong> selected products?
+                    Associated images, variants, and options will also be deleted. Products with active unfulfilled orders will be protected. This action cannot be undone.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/80">
+                <button type="button" wire:click="closeBulkDeleteModal"
+                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                    Cancel
+                </button>
+
+                <button type="button" wire:click="bulkDelete" wire:loading.attr="disabled"
+                    class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                    <span wire:loading.remove wire:target="bulkDelete">Delete Selected</span>
+                    <span wire:loading wire:target="bulkDelete">Deleting...</span>
                 </button>
             </div>
         </div>

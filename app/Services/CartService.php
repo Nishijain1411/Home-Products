@@ -26,6 +26,7 @@ class CartService
                 $currentPrice = (float) ($variant->effective_price ?? $variant->price ?? $variant->product->price);
                 $oldPrice = isset($item['price']) ? (float) $item['price'] : $currentPrice;
 
+                $item['product_id'] = $variant->product_id;
                 $item['product_name'] = $variant->product->name;
                 $item['title'] = $variant->title;
                 $item['sku'] = $variant->sku;

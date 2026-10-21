@@ -258,42 +258,47 @@
                         wire:click="addToCart"
                         wire:loading.attr="disabled"
                         @disabled(! $canAddToCart)
-                        class="w-full rounded-xl px-6 py-4 text-sm font-semibold text-white transition shadow-md
+                        class="group relative w-full overflow-hidden rounded-2xl px-7 py-4 text-sm font-bold text-white shadow-lg transition-all duration-300
                             {{ $canAddToCart
-                                ? 'hover:opacity-90 active:scale-[0.99]'
+                                ? 'hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
                                 : 'cursor-not-allowed opacity-50 bg-gray-400' }}"
                         style="{{ $canAddToCart ? 'background-color: var(--store-primary, #2563eb);' : '' }}"
                     >
-                        <span wire:loading.remove wire:target="addToCart">
+                        <span wire:loading.remove wire:target="addToCart" class="relative z-10 flex items-center justify-center gap-2">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
                             @if (! $selectedVariant)
-                                Select Available Variant
+                                <span>Select Available Variant</span>
                             @elseif ($stock <= 0)
-                                Out of Stock
+                                <span>Out of Stock</span>
                             @else
-                                Add to Cart — {{ format_price($currentPrice * $quantity) }}
+                                <span>Add to Cart &bull; {{ format_price($currentPrice * $quantity) }}</span>
                             @endif
                         </span>
 
-                        <span wire:loading wire:target="addToCart" class="inline-flex items-center gap-2">
-                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <span wire:loading wire:target="addToCart" class="relative z-10 inline-flex items-center justify-center gap-2">
+                            <svg class="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            Adding to Cart...
+                            <span>Adding to Cart...</span>
                         </span>
+
+                        <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full"></div>
                     </button>
 
                     @if (session()->has('cart_success'))
-                        <div class="flex items-center justify-between rounded-xl bg-green-50 p-4 text-sm text-green-800 border border-green-200">
+                        <div class="flex items-center justify-between rounded-xl bg-green-50 p-4 text-sm text-green-800 border border-green-200 animate-slide-up">
                             <div class="flex items-center gap-2">
                                 <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 </svg>
-                                <span>{{ session('cart_success') }}</span>
+                                <span class="font-medium">{{ session('cart_success') }}</span>
                             </div>
                             <a
                                 href="{{ route('storefront.cart') }}"
-                                class="font-semibold text-green-700 underline hover:text-green-900"
+                                class="font-bold text-green-700 underline hover:text-green-900"
                             >
                                 View Cart &rarr;
                             </a>
@@ -305,6 +310,31 @@
                             {{ session('cart_error') }}
                         </div>
                     @endif
+
+                    {{-- Product Assurance / Trust Badges --}}
+                    <div class="mt-6 rounded-2xl border border-gray-200/80 bg-gray-50/70 p-4 divide-y divide-gray-200/60">
+                        <div class="flex items-center gap-3 pb-3">
+                            <span class="text-lg">🚚</span>
+                            <div class="text-xs">
+                                <strong class="text-gray-900 font-bold">Fast & Tracked Shipping</strong>
+                                <p class="text-gray-500">Dispatched directly to your address with tracking.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 py-3">
+                            <span class="text-lg">🔒</span>
+                            <div class="text-xs">
+                                <strong class="text-gray-900 font-bold">Secure Checkout</strong>
+                                <p class="text-gray-500">Encrypted payment via Razorpay, UPI, & Cards.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 pt-3">
+                            <span class="text-lg">↩️</span>
+                            <div class="text-xs">
+                                <strong class="text-gray-900 font-bold">Easy 7-Day Returns</strong>
+                                <p class="text-gray-500">Hassle-free replacement if damaged or incorrect.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -313,52 +343,74 @@
 
         {{-- Related Products --}}
         @if ($relatedProducts->isNotEmpty())
-            <div class="mt-20 border-t border-gray-200 pt-12">
+            <div class="mt-20 border-t border-gray-100 pt-14">
                 <div class="mb-8 flex items-end justify-between">
                     <div>
-                        <h2 class="text-2xl font-bold tracking-tight text-gray-900">
+                        <span class="text-xs font-bold uppercase tracking-widest text-blue-600" style="color: var(--store-primary);">
+                            Recommendations
+                        </span>
+                        <h2 class="mt-1 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">
                             You May Also Like
                         </h2>
                         <p class="mt-1 text-sm text-gray-500">
-                            Similar products from the same category
+                            Similar products curated from the same collection
                         </p>
                     </div>
 
                     <a
                         href="{{ route('storefront.products.index') }}"
-                        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        class="group inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
                         style="color: var(--store-primary);"
                     >
-                        Browse All &rarr;
+                        <span>Browse All</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
                     </a>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid grid-cols-2 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach ($relatedProducts as $rel)
-                        <article class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                            <a href="{{ route('storefront.products.show', $rel->slug) }}" class="block aspect-square overflow-hidden bg-gray-100">
-                                @if ($rel->images->first())
+                        @php
+                            $relImg = $rel->images->first();
+                            $relDiscount = $rel->compare_at_price && $rel->compare_at_price > $rel->price;
+                            $relDiscPct = $relDiscount ? round((($rel->compare_at_price - $rel->price) / $rel->compare_at_price) * 100) : 0;
+                        @endphp
+                        <article class="store-card group flex flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xs transition-all duration-300">
+                            <a href="{{ route('storefront.products.show', $rel->slug) }}" class="relative block aspect-square overflow-hidden bg-gray-50">
+                                @if ($relImg)
                                     <img
-                                        src="{{ Storage::disk('public')->url($rel->images->first()->path) }}"
+                                        src="{{ Storage::disk('public')->url($relImg->path) }}"
                                         alt="{{ $rel->name }}"
-                                        class="h-full w-full object-cover transition duration-300 hover:scale-105"
+                                        class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                     >
                                 @else
                                     <div class="flex h-full items-center justify-center text-xs text-gray-400">
                                         No Image
                                     </div>
                                 @endif
+
+                                @if ($relDiscount)
+                                    <div class="absolute left-3 top-3">
+                                        <span class="rounded-lg bg-red-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-xs">
+                                            -{{ $relDiscPct }}%
+                                        </span>
+                                    </div>
+                                @endif
                             </a>
 
-                            <div class="p-4">
-                                <h3 class="font-semibold text-gray-900 truncate">
-                                    <a href="{{ route('storefront.products.show', $rel->slug) }}" class="hover:text-blue-600">
+                            <div class="flex flex-1 flex-col p-4 sm:p-5">
+                                <div class="flex items-center justify-between text-xs text-gray-400">
+                                    <span class="truncate max-w-[100px]">{{ $rel->categories->first()?->name ?? 'Collection' }}</span>
+                                    <span class="text-amber-400 text-xs">★ 4.9</span>
+                                </div>
+
+                                <h3 class="mt-1.5 font-bold text-gray-900 truncate group-hover:text-blue-600 transition text-sm" title="{{ $rel->name }}">
+                                    <a href="{{ route('storefront.products.show', $rel->slug) }}">
                                         {{ $rel->name }}
                                     </a>
                                 </h3>
 
-                                <div class="mt-1 flex items-center gap-2">
-                                    <span class="font-bold text-gray-900">
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="font-extrabold text-sm text-gray-900" style="color: var(--store-text);">
                                         {{ format_price($rel->price) }}
                                     </span>
                                     @if ($rel->compare_at_price)
@@ -368,13 +420,15 @@
                                     @endif
                                 </div>
 
-                                <a
-                                    href="{{ route('storefront.products.show', $rel->slug) }}"
-                                    class="mt-3 block w-full rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90"
-                                    style="background-color: var(--store-secondary);"
-                                >
-                                    View Details
-                                </a>
+                                <div class="mt-auto pt-4">
+                                    <a
+                                        href="{{ route('storefront.products.show', $rel->slug) }}"
+                                        class="block w-full rounded-xl px-3 py-2 text-center text-xs font-bold text-white shadow-xs transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+                                        style="background-color: var(--store-secondary, #111827);"
+                                    >
+                                        View Details
+                                    </a>
+                                </div>
                             </div>
                         </article>
                     @endforeach

@@ -219,6 +219,151 @@
                 </div>
             </div>
 
+            {{-- Applies To: All Products vs Specific Categories vs Specific Products --}}
+            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+                <div class="border-b border-gray-100 pb-3">
+                    <h3 class="text-base font-semibold text-gray-900">
+                        Applies To
+                    </h3>
+                    <p class="mt-0.5 text-xs text-gray-500">
+                        Specify whether this discount applies to all products, specific categories, or specific products.
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition {{ $applies_to === 'all' ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <input type="radio" wire:model.live="applies_to" value="all" class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <span class="block text-xs font-semibold text-gray-900">All Products</span>
+                            <span class="block text-[11px] text-gray-500">Applies across the entire catalog and order subtotal.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition {{ $applies_to === 'categories' ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <input type="radio" wire:model.live="applies_to" value="categories" class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <span class="block text-xs font-semibold text-gray-900">Specific Categories</span>
+                            <span class="block text-[11px] text-gray-500">Applies only to items belonging to the selected categories.</span>
+                        </div>
+                    </label>
+
+                    @if ($applies_to === 'categories')
+                        <div class="ml-6 p-4 rounded-xl border border-blue-200 bg-blue-50/30 space-y-2">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                                Select Categories <span class="text-red-500">*</span>
+                            </label>
+                            <div class="max-h-48 overflow-y-auto space-y-1.5 pr-2">
+                                @forelse ($availableCategories as $cat)
+                                    <label class="flex items-center gap-2 p-1.5 rounded hover:bg-white text-xs cursor-pointer">
+                                        <input type="checkbox" wire:model="selected_categories" value="{{ $cat->id }}"
+                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span class="text-gray-800 font-medium">{{ $cat->name }}</span>
+                                    </label>
+                                @empty
+                                    <p class="text-xs text-gray-400">No categories found in store.</p>
+                                @endforelse
+                            </div>
+                            @error('selected_categories')
+                                <p class="text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
+
+                    <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition {{ $applies_to === 'products' ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <input type="radio" wire:model.live="applies_to" value="products" class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <span class="block text-xs font-semibold text-gray-900">Specific Products</span>
+                            <span class="block text-[11px] text-gray-500">Applies only to selected specific products in the cart.</span>
+                        </div>
+                    </label>
+
+                    @if ($applies_to === 'products')
+                        <div class="ml-6 p-4 rounded-xl border border-blue-200 bg-blue-50/30 space-y-2">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                                Select Products <span class="text-red-500">*</span>
+                            </label>
+                            <div class="max-h-48 overflow-y-auto space-y-1.5 pr-2">
+                                @forelse ($availableProducts as $prod)
+                                    <label class="flex items-center justify-between p-1.5 rounded hover:bg-white text-xs cursor-pointer">
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" wire:model="selected_products" value="{{ $prod->id }}"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-gray-800 font-medium">{{ $prod->name }}</span>
+                                        </div>
+                                        <span class="text-gray-400 text-[11px]">{{ format_price($prod->price) }}</span>
+                                    </label>
+                                @empty
+                                    <p class="text-xs text-gray-400">No active products found.</p>
+                                @endforelse
+                            </div>
+                            @error('selected_products')
+                                <p class="text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Customer Eligibility: All Customers vs Specific Customer Segments --}}
+            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+                <div class="border-b border-gray-100 pb-3">
+                    <h3 class="text-base font-semibold text-gray-900">
+                        Customer Eligibility
+                    </h3>
+                    <p class="mt-0.5 text-xs text-gray-500">
+                        Restrict this coupon to all shoppers or exclusively to members of specific customer segments.
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition {{ $customer_eligibility === 'all' ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500/20' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <input type="radio" wire:model.live="customer_eligibility" value="all" class="mt-0.5 text-indigo-600 focus:ring-indigo-500">
+                        <div>
+                            <span class="block text-xs font-semibold text-gray-900">All Customers</span>
+                            <span class="block text-[11px] text-gray-500">Any customer or guest can apply this discount code.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition {{ $customer_eligibility === 'segments' ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500/20' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <input type="radio" wire:model.live="customer_eligibility" value="segments" class="mt-0.5 text-indigo-600 focus:ring-indigo-500">
+                        <div>
+                            <span class="block text-xs font-semibold text-gray-900">Specific Customer Segments</span>
+                            <span class="block text-[11px] text-gray-500">Only shoppers belonging to chosen segments (e.g. VIP, Wholesale) can redeem this code.</span>
+                        </div>
+                    </label>
+
+                    @if ($customer_eligibility === 'segments')
+                        <div class="ml-6 p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 space-y-2">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                                Select Customer Segments <span class="text-red-500">*</span>
+                            </label>
+                            <div class="space-y-1.5">
+                                @forelse ($availableSegments as $seg)
+                                    <label class="flex items-center justify-between p-2 rounded-lg border border-gray-200 bg-white text-xs cursor-pointer hover:border-indigo-300">
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" wire:model="selected_segments" value="{{ $seg->id }}"
+                                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                            <span class="text-gray-800 font-semibold">{{ $seg->name }}</span>
+                                        </div>
+                                        <span class="text-[11px] text-gray-400">
+                                            {{ $seg->customers()->count() }} customers
+                                        </span>
+                                    </label>
+                                @empty
+                                    <div class="text-xs text-gray-500 p-2">
+                                        No customer segments found.
+                                        <a href="{{ route('admin.customer-segments.index') }}" target="_blank" class="text-indigo-600 underline font-medium">Create customer segments first &rarr;</a>
+                                    </div>
+                                @endforelse
+                            </div>
+                            @error('selected_segments')
+                                <p class="text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
+                </div>
+            </div>
+
             {{-- Usage Limits --}}
             <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
                 <div class="border-b border-gray-100 pb-3">
@@ -381,6 +526,14 @@
                         @endif
                         @if ($usage_limit_per_customer)
                             <div>• <strong>{{ $usage_limit_per_customer }} use(s)</strong> per customer</div>
+                        @endif
+                        @if ($customer_eligibility === 'segments')
+                            <div>• Exclusively for: <strong>Specific Customer Segments</strong></div>
+                        @endif
+                        @if ($applies_to === 'categories')
+                            <div>• Applies to: <strong>Selected Categories</strong></div>
+                        @elseif ($applies_to === 'products')
+                            <div>• Applies to: <strong>Selected Products</strong></div>
                         @endif
                         @if ($expires_at)
                             <div>• Expires: <strong>{{ \Carbon\Carbon::parse($expires_at)->format('M d, Y') }}</strong></div>

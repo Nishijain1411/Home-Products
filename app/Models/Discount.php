@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Discount extends Model
@@ -13,6 +14,8 @@ class Discount extends Model
         'name',
         'description',
         'type',
+        'customer_eligibility',
+        'applies_to',
         'value',
         'min_order_amount',
         'max_discount_amount',
@@ -51,6 +54,24 @@ class Discount extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function customerSegments(): BelongsToMany
+    {
+        return $this->belongsToMany(CustomerSegment::class, 'customer_segment_discount')
+            ->withTimestamps();
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'category_discount')
+            ->withTimestamps();
+    }
+
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'discount_product')
+            ->withTimestamps();
     }
 
     public function isExpired(): bool
@@ -101,31 +122,129 @@ class Discount extends Model
         return $customerRedemptions >= $this->usage_limit_per_customer;
     }
 
-    public function calculateDiscountAmount(float $subtotal): float
+    /**
+     * Determine if customer is eligible under the discount's customer_eligibility rule.
+     */
+    public function isCustomerEligible(?int $customerId = null, ?string $customerEmail = null): bool
+    {
+        if ($this->customer_eligibility !== 'segments') {
+            return true;
+        }
+
+        $targetSegmentIds = $this->customerSegments()->pluck('customer_segments.id')->all();
+        if (empty($targetSegmentIds)) {
+            return true;
+        }
+
+        $user = null;
+        if ($customerId) {
+            $user = User::find($customerId);
+        } elseif ($customerEmail) {
+            $user = User::where('email', strtolower(trim($customerEmail)))->first();
+        }
+
+        if (! $user) {
+            return false;
+        }
+
+        return $user->segments()->whereIn('customer_segments.id', $targetSegmentIds)->exists();
+    }
+
+    /**
+     * Calculate eligible subtotal when discount is scoped to specific products or categories.
+     */
+    public function calculateEligibleSubtotal(?array $cartItems, float $fallbackSubtotal): float
+    {
+        if (empty($cartItems) || $this->applies_to === 'all') {
+            return $fallbackSubtotal;
+        }
+
+        $variantIds = array_filter(array_map(fn ($item) => $item['variant_id'] ?? null, $cartItems));
+        if (empty($variantIds)) {
+            return $fallbackSubtotal;
+        }
+
+        if ($this->applies_to === 'products') {
+            $targetProductIds = $this->products()->pluck('products.id')->all();
+            if (empty($targetProductIds)) {
+                return $fallbackSubtotal;
+            }
+
+            $variants = ProductVariant::whereIn('id', $variantIds)->pluck('product_id', 'id')->all();
+            $eligibleTotal = 0.0;
+
+            foreach ($cartItems as $item) {
+                $vId = $item['variant_id'] ?? null;
+                $pId = $item['product_id'] ?? ($variants[$vId] ?? null);
+                if ($pId && in_array($pId, $targetProductIds)) {
+                    $eligibleTotal += ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 1));
+                }
+            }
+
+            return round($eligibleTotal, 2);
+        }
+
+        if ($this->applies_to === 'categories') {
+            $targetCategoryIds = $this->categories()->pluck('categories.id')->all();
+            if (empty($targetCategoryIds)) {
+                return $fallbackSubtotal;
+            }
+
+            $variants = ProductVariant::with('product.categories')->whereIn('id', $variantIds)->get();
+            $variantCatMap = [];
+            foreach ($variants as $v) {
+                $variantCatMap[$v->id] = $v->product?->categories->pluck('id')->all() ?? [];
+            }
+
+            $eligibleTotal = 0.0;
+            foreach ($cartItems as $item) {
+                $vId = $item['variant_id'] ?? null;
+                $catIds = $variantCatMap[$vId] ?? [];
+                if (! empty(array_intersect($catIds, $targetCategoryIds))) {
+                    $eligibleTotal += ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 1));
+                }
+            }
+
+            return round($eligibleTotal, 2);
+        }
+
+        return $fallbackSubtotal;
+    }
+
+    /**
+     * Calculate the net discount amount deducted from the subtotal.
+     */
+    public function calculateDiscountAmount(float $subtotal, ?array $cartItems = null): float
     {
         if ($subtotal <= 0) {
             return 0.0;
         }
 
+        $applicableSubtotal = $this->calculateEligibleSubtotal($cartItems, $subtotal);
+
+        if ($applicableSubtotal <= 0) {
+            return 0.0;
+        }
+
         if ($this->type === 'percentage') {
-            $discount = ($subtotal * ((float) $this->value / 100));
+            $discount = ($applicableSubtotal * ((float) $this->value / 100));
 
             if ($this->max_discount_amount !== null && (float) $this->max_discount_amount > 0) {
                 $discount = min($discount, (float) $this->max_discount_amount);
             }
         } else {
-            $discount = min($subtotal, (float) $this->value);
+            $discount = min($applicableSubtotal, (float) $this->value);
         }
 
         return max(0.0, round($discount, 2));
     }
 
     /**
-     * Check if this discount can be applied to the given subtotal and customer.
+     * Check if this discount can be applied to the given subtotal, customer, and cart items.
      *
      * @return array{eligible: bool, message: ?string}
      */
-    public function checkEligibility(float $subtotal, ?int $customerId = null, ?string $customerEmail = null): array
+    public function checkEligibility(float $subtotal, ?int $customerId = null, ?string $customerEmail = null, ?array $cartItems = null): array
     {
         if (! $this->is_active) {
             return [
@@ -169,6 +288,49 @@ class Discount extends Model
                 'eligible' => false,
                 'message' => 'You have already reached the redemption limit for this coupon code.',
             ];
+        }
+
+        // Customer Segment eligibility check
+        if ($this->customer_eligibility === 'segments') {
+            if (! $this->isCustomerEligible($customerId, $customerEmail)) {
+                $segmentNames = $this->customerSegments()->pluck('name')->implode(', ');
+                $suffix = $segmentNames ? " ({$segmentNames})" : '';
+
+                return [
+                    'eligible' => false,
+                    'message' => "This coupon is exclusively available to members of the selected customer segment{$suffix}.",
+                ];
+            }
+        }
+
+        // Product / Category applies_to check
+        if (! empty($cartItems) && in_array($this->applies_to, ['products', 'categories'])) {
+            $eligibleSubtotal = $this->calculateEligibleSubtotal($cartItems, 0.0);
+            if ($eligibleSubtotal <= 0) {
+                if ($this->applies_to === 'products') {
+                    $prodNames = $this->products()->pluck('name')->implode(', ');
+                    $msg = $prodNames
+                        ? "This coupon is only valid for: {$prodNames}."
+                        : 'This coupon is only valid on select products.';
+
+                    return [
+                        'eligible' => false,
+                        'message' => $msg,
+                    ];
+                }
+
+                if ($this->applies_to === 'categories') {
+                    $catNames = $this->categories()->pluck('name')->implode(', ');
+                    $msg = $catNames
+                        ? "This coupon is only valid on the following categories: {$catNames}."
+                        : 'This coupon is only valid on select categories.';
+
+                    return [
+                        'eligible' => false,
+                        'message' => $msg,
+                    ];
+                }
+            }
         }
 
         return [

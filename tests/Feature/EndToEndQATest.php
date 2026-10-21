@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Livewire\Storefront\Checkout;
 use App\Livewire\Storefront\Orders\Index as CustomerOrderIndex;
 use App\Livewire\Storefront\Orders\Show as CustomerOrderShow;
@@ -8,11 +7,9 @@ use App\Livewire\Storefront\OrderSuccess;
 use App\Mail\OrderConfirmationMail;
 use App\Mail\PaymentConfirmedMail;
 use App\Models\Discount;
-use App\Models\DiscountRedemption;
 use App\Models\Inventory;
 use App\Models\InventoryAdjustment;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\PaymentTransaction;
 use App\Models\Product;
@@ -33,6 +30,7 @@ use Spatie\Permission\Models\Role;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    Auth::logout();
     Role::firstOrCreate(['name' => 'Customer', 'guard_name' => 'web']);
     Role::firstOrCreate(['name' => 'Super Administrator', 'guard_name' => 'web']);
 });

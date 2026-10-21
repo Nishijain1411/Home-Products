@@ -8,6 +8,7 @@ use App\Services\OrderService;
 use App\Services\PaymentService;
 use App\Services\SettingService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class Checkout extends Component
@@ -45,6 +46,16 @@ class Checkout extends Component
     public string $upiInstructions = '';
 
     public string $upiVpa = '';
+
+    public bool $enableRazorpay = true;
+
+    public string $razorpayInstructions = '';
+
+    public string $razorpayKeyId = '';
+
+    public bool $showRazorpaySimulatedModal = false;
+
+    public ?string $simulatedRazorpayOrderId = null;
 
     public string $firstName = '';
 
@@ -216,6 +227,9 @@ class Checkout extends Component
         $this->enableUpi = (bool) $settingService->get('enable_upi', true);
         $this->upiInstructions = (string) $settingService->get('upi_instructions', 'Pay instantly via UPI.');
         $this->upiVpa = (string) $settingService->get('upi_merchant_vpa', '');
+        $this->enableRazorpay = (bool) $settingService->get('enable_razorpay', true);
+        $this->razorpayInstructions = (string) $settingService->get('razorpay_instructions', 'Pay securely with Cards, UPI, Netbanking or Wallets via Razorpay.');
+        $this->razorpayKeyId = (string) $settingService->get('razorpay_key_id', config('services.razorpay.key', 'rzp_test_key'));
 
         $enabled = $this->getEnabledPaymentMethods();
         if (! in_array($this->paymentMethod, $enabled, true) && ! empty($enabled)) {
@@ -238,7 +252,8 @@ class Checkout extends Component
             $code,
             $this->subtotal,
             Auth::id(),
-            $this->email ?: Auth::user()?->email
+            $this->email ?: Auth::user()?->email,
+            $this->cart
         );
 
         if (! $validation['valid']) {
@@ -276,7 +291,8 @@ class Checkout extends Component
                 $this->appliedCoupon['code'],
                 $this->subtotal,
                 Auth::id(),
-                $this->email ?: Auth::user()?->email
+                $this->email ?: Auth::user()?->email,
+                $this->cart
             );
 
             if ($validation['valid']) {
@@ -299,9 +315,122 @@ class Checkout extends Component
         $this->total = $totals['total'];
     }
 
+    public function initiateRazorpayPayment(CartService $cartService, PaymentService $paymentService, SettingService $settingService): void
+    {
+        $this->validate();
+
+        $cart = $cartService->get();
+        if (empty($cart)) {
+            $this->redirectRoute('storefront.cart');
+
+            return;
+        }
+
+        $stockValidation = $cartService->validateStock();
+        if ($stockValidation['has_issues']) {
+            session()->flash('cart_error', 'Some items in your cart have stock limitations. Please adjust before checkout.');
+            $this->redirectRoute('storefront.cart');
+
+            return;
+        }
+
+        try {
+            $receipt = 'rcpt_'.strtoupper(Str::random(10));
+            $orderData = $paymentService->createRazorpayOrder(
+                $this->total,
+                $receipt,
+                'INR',
+                [
+                    'customer_email' => $this->email,
+                    'customer_name' => trim($this->firstName.' '.$this->lastName),
+                    'customer_phone' => $this->phone,
+                ]
+            );
+
+            $this->gatewayOrderId = $orderData['id'];
+
+            if (! empty($orderData['is_simulated'])) {
+                $this->simulatedRazorpayOrderId = $orderData['id'];
+                $this->showRazorpaySimulatedModal = true;
+
+                return;
+            }
+
+            $keyId = $this->razorpayKeyId ?: $paymentService->getGatewayKey('razorpay');
+            $storeName = (string) $settingService->get('store_name', 'Custom Commerce');
+            $themeColor = (string) $settingService->get('razorpay_theme_color', '#111827');
+
+            $this->dispatch('open-razorpay-checkout', [
+                'key' => $keyId,
+                'amount' => $orderData['amount'],
+                'currency' => $orderData['currency'] ?? 'INR',
+                'name' => $storeName,
+                'description' => "Order Payment ({$receipt})",
+                'order_id' => $orderData['id'],
+                'prefill' => [
+                    'name' => trim($this->firstName.' '.$this->lastName),
+                    'email' => $this->email,
+                    'contact' => $this->phone,
+                ],
+                'notes' => [
+                    'shipping_address' => $this->address.', '.$this->city,
+                ],
+                'theme' => [
+                    'color' => $themeColor,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->addError('checkout', $e->getMessage());
+        }
+    }
+
+    public function simulateRazorpaySuccess(
+        OrderService $orderService,
+        CartService $cartService,
+        PaymentService $paymentService,
+        SettingService $settingService
+    ): void {
+        $secret = (string) $settingService->get('razorpay_key_secret', config('services.razorpay.secret', 'rzp_test_secret_key'));
+
+        $orderId = $this->simulatedRazorpayOrderId ?: $this->gatewayOrderId ?: ('order_sim_'.strtoupper(Str::random(14)));
+        $paymentId = 'pay_sim_'.strtoupper(Str::random(14));
+        $signature = hash_hmac('sha256', "{$orderId}|{$paymentId}", $secret);
+
+        $this->showRazorpaySimulatedModal = false;
+
+        $this->handleRazorpaySuccess($paymentId, $orderId, $signature, $orderService, $cartService, $paymentService);
+    }
+
+    public function closeRazorpaySimulatedModal(): void
+    {
+        $this->showRazorpaySimulatedModal = false;
+    }
+
+    public function handleRazorpaySuccess(
+        string $paymentId,
+        string $orderId,
+        string $signature,
+        OrderService $orderService,
+        CartService $cartService,
+        PaymentService $paymentService
+    ): void {
+        $this->gatewayTransactionId = $paymentId;
+        $this->gatewayOrderId = $orderId;
+        $this->gatewaySignature = $signature;
+        $this->paymentMethod = 'razorpay';
+
+        $this->placeOrder($orderService, $cartService, $paymentService);
+    }
+
     public function placeOrder(OrderService $orderService, CartService $cartService, PaymentService $paymentService): void
     {
         $validated = $this->validate();
+
+        if ($this->paymentMethod === 'razorpay' && empty($this->gatewayTransactionId)) {
+            $this->initiateRazorpayPayment($cartService, $paymentService, app(SettingService::class));
+
+            return;
+        }
 
         $cart = $cartService->get();
 

@@ -120,6 +120,16 @@ class Index extends Component
 
     public string $upi_instructions = '';
 
+    public bool $enable_razorpay = true;
+
+    public string $razorpay_mode = 'test';
+
+    public string $razorpay_key_id = '';
+
+    public string $razorpay_key_secret = '';
+
+    public string $razorpay_instructions = '';
+
     // 6. Shipping Settings
     public string $origin_address = '';
 
@@ -229,6 +239,11 @@ class Index extends Component
         $this->upi_mode = (string) ($payment['upi_mode'] ?? 'test');
         $this->upi_merchant_vpa = (string) ($payment['upi_merchant_vpa'] ?? '');
         $this->upi_instructions = (string) ($payment['upi_instructions'] ?? '');
+        $this->enable_razorpay = (bool) ($payment['enable_razorpay'] ?? true);
+        $this->razorpay_mode = (string) ($payment['razorpay_mode'] ?? 'test');
+        $this->razorpay_key_id = (string) ($payment['razorpay_key_id'] ?? '');
+        $this->razorpay_key_secret = (string) ($payment['razorpay_key_secret'] ?? '');
+        $this->razorpay_instructions = (string) ($payment['razorpay_instructions'] ?? '');
 
         // 6. Shipping
         $shipping = $settingService->getGroup('shipping');
@@ -412,6 +427,11 @@ class Index extends Component
             'upi_mode' => ['required', 'in:test,live'],
             'upi_merchant_vpa' => ['nullable', 'string', 'max:255'],
             'upi_instructions' => ['nullable', 'string', 'max:500'],
+            'enable_razorpay' => ['boolean'],
+            'razorpay_mode' => ['required', 'in:test,live'],
+            'razorpay_key_id' => ['nullable', 'string', 'max:255'],
+            'razorpay_key_secret' => ['nullable', 'string', 'max:255'],
+            'razorpay_instructions' => ['nullable', 'string', 'max:500'],
         ]);
 
         $settingService->setGroup('payment', [
@@ -425,6 +445,11 @@ class Index extends Component
             'upi_mode' => $this->upi_mode,
             'upi_merchant_vpa' => $this->upi_merchant_vpa,
             'upi_instructions' => $this->upi_instructions,
+            'enable_razorpay' => $this->enable_razorpay,
+            'razorpay_mode' => $this->razorpay_mode,
+            'razorpay_key_id' => $this->razorpay_key_id,
+            'razorpay_key_secret' => $this->razorpay_key_secret,
+            'razorpay_instructions' => $this->razorpay_instructions,
         ]);
     }
 

@@ -75,7 +75,9 @@ class Index extends Component
 
     public function render()
     {
-        $query = Discount::query()->withCount('redemptions');
+        $query = Discount::query()
+            ->withCount('redemptions')
+            ->with(['customerSegments', 'categories', 'products']);
 
         if ($this->search !== '') {
             $search = trim($this->search);

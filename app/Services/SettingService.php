@@ -72,6 +72,12 @@ class SettingService
             'upi_mode' => 'test',
             'upi_merchant_vpa' => 'merchant@upi',
             'upi_instructions' => 'Pay instantly via Google Pay, PhonePe or Paytm.',
+            'enable_razorpay' => true,
+            'razorpay_mode' => 'test',
+            'razorpay_key_id' => 'rzp_test_key',
+            'razorpay_key_secret' => 'rzp_test_secret_key',
+            'razorpay_instructions' => 'Pay securely with Credit/Debit Cards, UPI, Netbanking, or Wallets via Razorpay.',
+            'razorpay_theme_color' => '#111827',
         ],
         'shipping' => [
             'origin_address' => '123 Warehouse Logistics Center',

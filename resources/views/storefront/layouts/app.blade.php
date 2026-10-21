@@ -58,18 +58,24 @@
     ">
 
     @if ($showAnnouncement && !empty($announcementText))
-        <div class="px-4 py-2.5 text-center text-xs font-medium tracking-wide transition-all z-40"
+        <div class="relative px-4 py-2.5 text-center text-xs font-semibold tracking-wide transition-all z-40 shadow-xs"
              style="background-color: {{ $announcementBg }}; color: {{ $announcementTextColor }};">
-            @if ($announcementLink)
-                <a href="{{ $announcementLink }}" class="inline-flex items-center gap-1.5 hover:underline font-semibold">
+            <div class="inline-flex items-center justify-center gap-2">
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+                @if ($announcementLink)
+                    <a href="{{ $announcementLink }}" class="inline-flex items-center gap-1.5 hover:underline font-bold">
+                        <span>{{ $announcementText }}</span>
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                @else
                     <span>{{ $announcementText }}</span>
-                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                </a>
-            @else
-                <span>{{ $announcementText }}</span>
-            @endif
+                @endif
+            </div>
         </div>
     @endif
 
@@ -102,6 +108,25 @@
     </main>
 
     @include('storefront.components.footer')
+
+    {{-- Back to Top Floating Button --}}
+    <div
+        x-data="{ showTop: false }"
+        @scroll.window="showTop = (window.pageYOffset > 350)"
+        class="fixed bottom-6 right-6 z-40 transition-all duration-300"
+        :class="showTop ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'"
+    >
+        <button
+            type="button"
+            @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+            class="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg border border-gray-200/80 backdrop-blur-md transition-all duration-200 hover:bg-white hover:text-blue-600 hover:-translate-y-1 hover:shadow-xl active:scale-95"
+            aria-label="Scroll to top"
+        >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+        </button>
+    </div>
 
     @stack('scripts')
 

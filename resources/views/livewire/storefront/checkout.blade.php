@@ -10,7 +10,25 @@
         </p>
     </div>
 
-    @if ($errors->any())
+    @if ($errors->has('checkout'))
+        <div class="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
+            <div class="flex items-start gap-3">
+                <svg class="h-5 w-5 shrink-0 text-red-600 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+                <div class="flex-1">
+                    <span class="font-semibold text-red-900">Payment Processing Notice</span>
+                    <p class="mt-1 text-xs text-red-700">{{ $errors->first('checkout') }}</p>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @php
+        $validationErrors = collect($errors->all())->reject(fn ($e) => $e === $errors->first('checkout'))->values();
+    @endphp
+
+    @if ($validationErrors->isNotEmpty())
         <div class="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700 shadow-sm">
             <div class="flex items-center gap-2 font-semibold">
                 <svg class="h-5 w-5 shrink-0 text-red-600" viewBox="0 0 20 20" fill="currentColor">
@@ -19,7 +37,7 @@
                 <span>Please complete all required fields before placing your order:</span>
             </div>
             <ul class="mt-3 list-inside list-disc space-y-1 text-xs pl-2">
-                @foreach ($errors->all() as $error)
+                @foreach ($validationErrors as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
@@ -404,7 +422,44 @@
                         @endif
                     @endif
 
-                    @if (! $enableCod && ! $enableCard && ! $enableUpi)
+                    {{-- Razorpay Option --}}
+                    @if ($enableRazorpay)
+                        <label class="relative flex cursor-pointer rounded-xl border p-4 transition {{ $paymentMethod === 'razorpay' ? 'border-blue-600 bg-blue-50/20 ring-1 ring-blue-600' : 'border-gray-200 hover:border-gray-300' }}">
+                            <input
+                                type="radio"
+                                name="paymentMethod"
+                                value="razorpay"
+                                wire:model.live="paymentMethod"
+                                class="mt-1 text-blue-600 focus:ring-blue-500"
+                            >
+                            <div class="ml-3 flex flex-col flex-1">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-semibold text-gray-900">Razorpay</span>
+                                        <span class="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 uppercase">Cards, UPI, Netbanking, Wallets</span>
+                                    </div>
+                                    <span class="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">Instant & Secure</span>
+                                </div>
+                                <span class="mt-1 text-xs text-gray-500">{{ $razorpayInstructions ?: 'Pay securely with UPI, Credit/Debit Cards, Netbanking, or Wallets.' }}</span>
+                            </div>
+                        </label>
+
+                        @if ($paymentMethod === 'razorpay')
+                            <div class="mt-2 rounded-xl border border-blue-200 bg-blue-50/40 p-4 text-xs text-blue-800">
+                                <div class="flex items-start gap-2.5">
+                                    <svg class="h-4 w-4 shrink-0 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    <div>
+                                        <span class="font-semibold text-blue-900">Razorpay Payment Gateway</span>
+                                        <p class="mt-0.5 text-blue-700">Click below to open the secure Razorpay modal with 100+ payment methods including UPI (Google Pay, PhonePe, Paytm), Cards, Netbanking and Wallets.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endif
+
+                    @if (! $enableCod && ! $enableCard && ! $enableUpi && ! $enableRazorpay)
                         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
                             No payment gateways are currently active. Please contact store support.
                         </div>
@@ -584,6 +639,8 @@
                             Pay {{ format_price($total) }} with Card
                         @elseif ($paymentMethod === 'upi')
                             Pay {{ format_price($total) }} with UPI
+                        @elseif ($paymentMethod === 'razorpay')
+                            Pay {{ format_price($total) }} with Razorpay
                         @else
                             Place Order — {{ format_price($total) }}
                         @endif
@@ -614,6 +671,183 @@
 
         </div>
 
-    </div>
+    {{-- Razorpay Test Mode Simulator Modal --}}
+    @if ($showRazorpaySimulatedModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-black/60 backdrop-blur-sm transition-all"
+             x-transition:enter="ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            <div class="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+                {{-- Modal Header: Razorpay Navy --}}
+                <div class="bg-[#0C2340] px-6 py-5 text-white">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 font-bold text-white text-xs tracking-wider shadow">
+                                RZP
+                            </div>
+                            <div>
+                                <span class="text-sm font-bold tracking-tight text-white">Razorpay Checkout</span>
+                                <span class="ml-1.5 rounded bg-blue-400/30 px-1.5 py-0.5 text-[10px] font-semibold text-blue-200 uppercase tracking-wider">Test Sandbox</span>
+                            </div>
+                        </div>
+                        <button type="button" wire:click="closeRazorpaySimulatedModal" class="rounded-lg p-1 text-gray-400 hover:text-white transition">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="mt-4 flex items-baseline justify-between border-t border-white/10 pt-3">
+                        <span class="text-xs text-gray-300">Amount Due:</span>
+                        <span class="text-2xl font-extrabold text-white">{{ format_price($total) }}</span>
+                    </div>
+                </div>
+
+                {{-- Modal Body --}}
+                <div class="p-6 space-y-4">
+                    {{-- Notice banner --}}
+                    <div class="rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 text-xs text-blue-900">
+                        <div class="flex items-start gap-2">
+                            <svg class="h-4 w-4 shrink-0 text-blue-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <span class="font-semibold text-blue-950">Test Sandbox Mode Active</span>
+                                <p class="mt-0.5 text-blue-800 leading-relaxed">Default placeholder credentials are active. You can simulate an instant test payment below, or connect your real Razorpay Test Key ID & Secret in <strong class="font-semibold text-blue-950">Admin &gt; Settings &gt; Payment</strong> to use the official Razorpay modal.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Customer details preview --}}
+                    <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-3 text-xs text-gray-600 space-y-1">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Order Ref:</span>
+                            <span class="font-mono text-gray-900 font-semibold">{{ $simulatedRazorpayOrderId }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Paying as:</span>
+                            <span class="text-gray-900 font-medium">{{ $firstName }} {{ $lastName }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Email:</span>
+                            <span class="text-gray-900 font-medium">{{ $email }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Payment options preview --}}
+                    <div class="space-y-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Payment Simulation</span>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="rounded-lg border border-blue-500 bg-blue-50/50 p-2.5 text-center font-medium text-blue-900">
+                                UPI / QR
+                            </div>
+                            <div class="rounded-lg border border-gray-200 bg-white p-2.5 text-center font-medium text-gray-700">
+                                Card / Netbanking
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Action Buttons --}}
+                    <div class="pt-2 space-y-2">
+                        <button
+                            type="button"
+                            wire:click="simulateRazorpaySuccess"
+                            wire:loading.attr="disabled"
+                            class="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition disabled:opacity-50"
+                        >
+                            <span wire:loading.remove wire:target="simulateRazorpaySuccess" class="inline-flex items-center gap-2">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Simulate Successful Payment ({{ format_price($total) }})</span>
+                            </span>
+                            <span wire:loading wire:target="simulateRazorpaySuccess" class="inline-flex items-center gap-2">
+                                <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Processing Payment...</span>
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            wire:click="closeRazorpaySimulatedModal"
+                            class="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
+                        >
+                            Cancel Payment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
 </div>
+
+@push('scripts')
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+    (function() {
+        function attachRazorpayListener() {
+            window.removeEventListener('open-razorpay-checkout', onRazorpayCheckout);
+            window.addEventListener('open-razorpay-checkout', onRazorpayCheckout);
+        }
+
+        function onRazorpayCheckout(event) {
+            const data = Array.isArray(event.detail) ? event.detail[0] : event.detail;
+
+            const options = {
+                key: data.key,
+                amount: data.amount,
+                currency: data.currency || 'INR',
+                name: data.name,
+                description: data.description,
+                order_id: data.order_id,
+                prefill: data.prefill || {},
+                notes: data.notes || {},
+                theme: data.theme || { color: '#111827' },
+                handler: function (response) {
+                    if (window.Livewire) {
+                        const componentEl = document.querySelector('[wire\\:id]');
+                        if (componentEl) {
+                            const component = Livewire.find(componentEl.getAttribute('wire:id'));
+                            if (component) {
+                                component.call(
+                                    'handleRazorpaySuccess',
+                                    response.razorpay_payment_id,
+                                    response.razorpay_order_id,
+                                    response.razorpay_signature
+                                );
+                            }
+                        }
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        console.log('Razorpay modal closed by customer.');
+                    }
+                }
+            };
+
+            if (typeof Razorpay !== 'undefined') {
+                const rzp = new Razorpay(options);
+                rzp.on('payment.failed', function (resp) {
+                    console.error('Razorpay payment failed:', resp.error);
+                    alert(resp.error.description || 'Payment was declined or failed.');
+                });
+                rzp.open();
+            } else {
+                console.error('Razorpay SDK not loaded.');
+                alert('Razorpay payment SDK could not be loaded. Please check your internet connection.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', attachRazorpayListener);
+        document.addEventListener('livewire:navigated', attachRazorpayListener);
+        attachRazorpayListener();
+    })();
+</script>
+@endpush

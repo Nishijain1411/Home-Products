@@ -28,5 +28,12 @@ class Edit extends Create
         $this->starts_at = $discount->starts_at ? $discount->starts_at->setTimezone($storeTimezone)->format('Y-m-d\TH:i') : '';
         $this->expires_at = $discount->expires_at ? $discount->expires_at->setTimezone($storeTimezone)->format('Y-m-d\TH:i') : '';
         $this->is_active = (bool) $discount->is_active;
+
+        $this->customer_eligibility = $discount->customer_eligibility ?? 'all';
+        $this->selected_segments = $discount->customerSegments->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $this->applies_to = $discount->applies_to ?? 'all';
+        $this->selected_categories = $discount->categories->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->selected_products = $discount->products->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

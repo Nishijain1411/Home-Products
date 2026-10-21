@@ -20,6 +20,18 @@ class Index extends Component
 
     public $search = '';
 
+    public string $statusFilter = '';
+
+    public string $parentFilter = '';
+
+    public string $typeFilter = '';
+
+    public array $selected = [];
+
+    public bool $selectAll = false;
+
+    public bool $showBulkDeleteModal = false;
+
     public $showModal = false;
 
     public $showDeleteModal = false;
@@ -31,6 +43,8 @@ class Index extends Component
     public array $importErrors = [];
 
     public ?string $successMessage = null;
+
+    public ?string $errorMessage = null;
 
     public $editingId = null;
 
@@ -60,11 +74,120 @@ class Index extends Component
 
     protected $queryString = [
         'search' => ['except' => ''],
+        'statusFilter' => ['except' => ''],
+        'parentFilter' => ['except' => ''],
+        'typeFilter' => ['except' => ''],
     ];
+
+    public function buildFilteredCategoriesQuery()
+    {
+        return Category::query()
+            ->when($this->search, function ($query) {
+                $query->where(function ($query) {
+                    $query->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('slug', 'like', '%'.$this->search.'%');
+                });
+            })
+            ->when($this->statusFilter !== '', function ($query) {
+                $query->where('is_active', $this->statusFilter === 'active');
+            })
+            ->when($this->parentFilter === 'root', function ($query) {
+                $query->whereNull('parent_id');
+            })
+            ->when($this->parentFilter === 'sub', function ($query) {
+                $query->whereNotNull('parent_id');
+            })
+            ->when($this->typeFilter !== '', function ($query) {
+                $query->where('collection_type', $this->typeFilter);
+            });
+    }
+
+    public function getCurrentPageIdsProperty(): array
+    {
+        return $this->buildFilteredCategoriesQuery()
+            ->latest()
+            ->paginate(15)
+            ->map(fn ($cat) => (string) $cat->id)
+            ->all();
+    }
+
+    public function updatedSelectAll($value): void
+    {
+        $pageIds = $this->currentPageIds;
+
+        if ($value) {
+            $this->selected = array_values(array_unique(array_merge($this->selected, $pageIds)));
+        } else {
+            $this->selected = array_values(array_diff($this->selected, $pageIds));
+        }
+    }
+
+    public function updatedSelected(): void
+    {
+        $this->syncSelectAllState();
+    }
+
+    public function syncSelectAllState(): void
+    {
+        $pageIds = $this->currentPageIds;
+        if (empty($pageIds)) {
+            $this->selectAll = false;
+
+            return;
+        }
+
+        $diff = array_diff($pageIds, $this->selected);
+        $this->selectAll = empty($diff);
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+        $this->selectAll = false;
+    }
+
+    public function updatedPage(): void
+    {
+        $this->syncSelectAllState();
+    }
 
     public function updatedSearch()
     {
         $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedParentFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset(['search', 'statusFilter', 'parentFilter', 'typeFilter']);
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function getHasActiveFiltersProperty(): bool
+    {
+        return ! empty($this->search)
+            || $this->statusFilter !== ''
+            || $this->parentFilter !== ''
+            || $this->typeFilter !== '';
     }
 
     public function updatedName($value)
@@ -250,11 +373,17 @@ class Index extends Component
         $category = Category::findOrFail($this->deleteId);
 
         if ($category->products()->exists()) {
+            $this->errorMessage = 'This category cannot be deleted because products are assigned to it.';
+            session()->flash('error', $this->errorMessage);
 
-            session()->flash(
-                'error',
-                'This category cannot be deleted because products are assigned to it.'
-            );
+            $this->closeDeleteModal();
+
+            return;
+        }
+
+        if ($category->children()->exists()) {
+            $this->errorMessage = 'This category cannot be deleted because it contains subcategories.';
+            session()->flash('error', $this->errorMessage);
 
             $this->closeDeleteModal();
 
@@ -273,6 +402,161 @@ class Index extends Component
         );
 
         $this->closeDeleteModal();
+    }
+
+    protected function authorizeBulkAction(): void
+    {
+        if (! auth()->check()) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        $user = auth()->user();
+
+        if (! $user->canAccessAdmin()) {
+            abort(403, 'Unauthorized. Access restricted to store administrators.');
+        }
+
+        if (method_exists($user, 'hasPermissionTo') && $user->roles()->exists()) {
+            if (! $user->hasAnyRole(['Super Administrator', 'Store Administrator', 'Catalogue Manager']) && ! $user->can('categories')) {
+                abort(403, 'Unauthorized. You do not have permission to manage categories.');
+            }
+        }
+    }
+
+    protected function getValidatedSelectedIds(): array
+    {
+        $this->authorizeBulkAction();
+
+        if (empty($this->selected)) {
+            $this->errorMessage = 'No categories were selected for this bulk action.';
+            session()->flash('error', $this->errorMessage);
+
+            return [];
+        }
+
+        $ids = array_values(array_filter(array_map('intval', $this->selected), fn ($id) => $id > 0));
+
+        if (empty($ids)) {
+            $this->errorMessage = 'The selected category IDs are invalid.';
+            session()->flash('error', $this->errorMessage);
+            $this->clearSelection();
+
+            return [];
+        }
+
+        return $ids;
+    }
+
+    public function bulkActivate(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $count = Category::whereIn('id', $ids)->update(['is_active' => true]);
+
+        $message = "{$count} ".Str::plural('category', $count).' activated successfully.';
+        $this->errorMessage = null;
+        $this->successMessage = $message;
+        session()->flash('success', $message);
+
+        $this->clearSelection();
+    }
+
+    public function bulkDeactivate(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $count = Category::whereIn('id', $ids)->update(['is_active' => false]);
+
+        $message = "{$count} ".Str::plural('category', $count).' deactivated successfully.';
+        $this->errorMessage = null;
+        $this->successMessage = $message;
+        session()->flash('success', $message);
+
+        $this->clearSelection();
+    }
+
+    public function confirmBulkDelete(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $this->showBulkDeleteModal = true;
+    }
+
+    public function closeBulkDeleteModal(): void
+    {
+        $this->showBulkDeleteModal = false;
+    }
+
+    public function bulkDelete(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        DB::transaction(function () use ($ids) {
+            $categories = Category::withCount(['products', 'children'])->whereIn('id', $ids)->get();
+
+            $deletableCategories = [];
+            $protectedCategories = [];
+
+            foreach ($categories as $category) {
+                $issues = [];
+                if ($category->products_count > 0) {
+                    $issues[] = "{$category->products_count} assigned ".Str::plural('product', $category->products_count);
+                }
+                if ($category->children_count > 0) {
+                    $issues[] = "{$category->children_count} sub".Str::plural('category', $category->children_count);
+                }
+
+                if (! empty($issues)) {
+                    $protectedCategories[] = "{$category->name} (".implode(', ', $issues).')';
+                } else {
+                    $deletableCategories[] = $category;
+                }
+            }
+
+            if (empty($deletableCategories)) {
+                $reasons = implode('; ', $protectedCategories);
+                $this->errorMessage = "Cannot delete selected categories because of existing dependencies: {$reasons}. Please reassign or delete dependent items first.";
+                session()->flash('error', $this->errorMessage);
+
+                return;
+            }
+
+            $deletedCount = 0;
+            foreach ($deletableCategories as $category) {
+                if ($category->image && Storage::disk('public')->exists($category->image)) {
+                    Storage::disk('public')->delete($category->image);
+                }
+
+                $category->delete();
+                $deletedCount++;
+            }
+
+            if (! empty($protectedCategories)) {
+                $skippedReasons = implode('; ', $protectedCategories);
+                $message = "{$deletedCount} ".Str::plural('category', $deletedCount)." deleted successfully. Skipped: {$skippedReasons}.";
+            } else {
+                $message = "{$deletedCount} ".Str::plural('category', $deletedCount).' deleted successfully.';
+            }
+
+            $this->errorMessage = null;
+            $this->successMessage = $message;
+            session()->flash('success', $message);
+        });
+
+        $this->closeBulkDeleteModal();
+        $this->clearSelection();
     }
 
     public function toggleStatus($id)
@@ -342,17 +626,12 @@ class Index extends Component
     public function dismissAlert(): void
     {
         $this->successMessage = null;
+        $this->errorMessage = null;
     }
 
     public function export(): StreamedResponse
     {
-        $categories = Category::query()
-            ->when($this->search, function ($query) {
-                $query->where(function ($query) {
-                    $query->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('slug', 'like', '%'.$this->search.'%');
-                });
-            })
+        $categories = $this->buildFilteredCategoriesQuery()
             ->with('parent')
             ->orderBy('sort_order')
             ->orderBy('name')
@@ -657,13 +936,9 @@ class Index extends Component
 
     public function render()
     {
-        $categories = Category::query()
-            ->when($this->search, function ($query) {
-                $query->where(function ($query) {
-                    $query->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('slug', 'like', '%'.$this->search.'%');
-                });
-            })
+        $this->syncSelectAllState();
+
+        $categories = $this->buildFilteredCategoriesQuery()
             ->with('parent')
             ->latest()
             ->paginate(15);

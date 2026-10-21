@@ -668,6 +668,66 @@
                         @endif
                     </div>
 
+                    {{-- Razorpay Gateway --}}
+                    <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="flex items-center gap-2.5">
+                                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Razorpay Payment Gateway</h2>
+                                    <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Popular</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Accept Credit/Debit Cards, UPI, Netbanking, Wallets and Pay Later with Razorpay.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" wire:model="enable_razorpay" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        @if ($enable_razorpay)
+                            <div class="mt-5 pt-5 border-t border-gray-200 grid grid-cols-1 gap-5 sm:grid-cols-2 dark:border-gray-700">
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        Environment Mode <span class="text-red-500">*</span>
+                                    </label>
+                                    <select wire:model.blur="razorpay_mode" class="mt-1.5 w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                        <option value="test">Test Mode (rzp_test_...)</option>
+                                        <option value="live">Live Production (rzp_live_...)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        Razorpay Key ID
+                                    </label>
+                                    <input type="text" wire:model.blur="razorpay_key_id" placeholder="rzp_test_xxxxxxxxxxxxxx" class="mt-1.5 w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                </div>
+
+                                <div class="sm:col-span-2">
+                                    <label class="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        Razorpay Key Secret
+                                    </label>
+                                    <input type="password" wire:model.blur="razorpay_key_secret" placeholder="••••••••••••••••" class="mt-1.5 w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                </div>
+
+                                <div class="sm:col-span-2">
+                                    <label class="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                                        Customer Checkout Instructions
+                                    </label>
+                                    <textarea wire:model.blur="razorpay_instructions" rows="2" class="mt-1.5 w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Pay securely with Cards, UPI, Netbanking or Wallets via Razorpay."></textarea>
+                                </div>
+
+                                <div class="sm:col-span-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">Webhook Endpoint URL</span>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Configure this URL in your Razorpay Dashboard under Settings &rarr; Webhooks with event <code class="text-blue-600 dark:text-blue-400 font-mono">payment.captured</code> and your Key Secret:</p>
+                                    <div class="mt-2 flex items-center gap-2">
+                                        <input type="text" readonly value="{{ url('/api/v1/payments/webhook/razorpay') }}" class="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs font-mono text-gray-700 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
                 </div>
             @endif
 

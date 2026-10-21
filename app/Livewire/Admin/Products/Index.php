@@ -23,9 +23,39 @@ class Index extends Component
 
     public $search = '';
 
+    public string $statusFilter = '';
+
+    public string $categoryFilter = '';
+
+    public string $stockFilter = '';
+
+    public string $featuredFilter = '';
+
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'statusFilter' => ['except' => ''],
+        'categoryFilter' => ['except' => ''],
+        'stockFilter' => ['except' => ''],
+        'featuredFilter' => ['except' => ''],
+    ];
+
     public $showModal = false;
 
     public $showDeleteModal = false;
+
+    public $showBulkDeleteModal = false;
+
+    public bool $showBulkCategoryModal = false;
+
+    public array $bulkCategoryIds = [];
+
+    public string $bulkCategoryMode = 'append';
+
+    public string $bulkStatusMode = 'keep';
+
+    public array $selected = [];
+
+    public bool $selectAll = false;
 
     public $showImportModal = false;
 
@@ -34,6 +64,8 @@ class Index extends Component
     public array $importErrors = [];
 
     public ?string $successMessage = null;
+
+    public ?string $errorMessage = null;
 
     public $editingId = null;
 
@@ -180,9 +212,9 @@ class Index extends Component
         ];
     }
 
-    public function render()
+    public function buildFilteredProductsQuery()
     {
-        $products = Product::query()
+        return Product::query()
             ->when($this->search, function ($query) {
                 $query->where(function ($query) {
                     $query
@@ -191,9 +223,39 @@ class Index extends Component
                         ->orWhere('slug', 'like', '%'.$this->search.'%');
                 });
             })
+            ->when($this->statusFilter !== '', function ($query) {
+                $query->where('is_active', $this->statusFilter === 'active');
+            })
+            ->when($this->categoryFilter !== '', function ($query) {
+                $query->whereHas('categories', function ($q) {
+                    $q->where('categories.id', $this->categoryFilter);
+                });
+            })
+            ->when($this->stockFilter === 'in_stock', function ($query) {
+                $query->whereHas('variants.inventory', function ($q) {
+                    $q->where('quantity', '>', 0);
+                });
+            })
+            ->when($this->stockFilter === 'out_of_stock', function ($query) {
+                $query->whereDoesntHave('variants.inventory', function ($q) {
+                    $q->where('quantity', '>', 0);
+                });
+            })
+            ->when($this->featuredFilter !== '', function ($query) {
+                $query->where('is_featured', $this->featuredFilter === 'featured');
+            });
+    }
+
+    public function render()
+    {
+        $products = $this->buildFilteredProductsQuery()
             ->with(['categories', 'images', 'variants.inventory'])
             ->latest()
             ->paginate(15);
+
+        // Keep master selectAll checkbox synchronized with the current page
+        $currentPageIds = $products->pluck('id')->map(fn ($id) => (string) $id)->all();
+        $this->selectAll = ! empty($currentPageIds) && empty(array_diff($currentPageIds, array_map('strval', $this->selected)));
 
         $categories = Category::query()
             ->where('is_active', true)
@@ -211,6 +273,350 @@ class Index extends Component
             'livewire.admin.products.index',
             compact('products', 'categories')
         );
+    }
+
+    public function getCurrentPageIdsProperty(): array
+    {
+        return $this->buildFilteredProductsQuery()
+            ->latest()
+            ->paginate(15)
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function updatedSelectAll($value): void
+    {
+        $currentPageIds = $this->currentPageIds;
+
+        if ($value) {
+            $this->selected = array_values(array_unique(array_merge(
+                array_map('strval', $this->selected),
+                $currentPageIds
+            )));
+        } else {
+            $this->selected = array_values(array_diff(
+                array_map('strval', $this->selected),
+                $currentPageIds
+            ));
+        }
+
+        $this->syncSelectAllState();
+    }
+
+    public function updatedSelected(): void
+    {
+        $this->syncSelectAllState();
+    }
+
+    public function syncSelectAllState(): void
+    {
+        $currentPageIds = $this->currentPageIds;
+        $selectedStrings = array_map('strval', $this->selected);
+
+        $this->selectAll = ! empty($currentPageIds) && empty(array_diff($currentPageIds, $selectedStrings));
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+        $this->selectAll = false;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedCategoryFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedStockFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function updatedFeaturedFilter(): void
+    {
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset(['search', 'statusFilter', 'categoryFilter', 'stockFilter', 'featuredFilter']);
+        $this->resetPage();
+        $this->syncSelectAllState();
+    }
+
+    public function getHasActiveFiltersProperty(): bool
+    {
+        return ! empty($this->search)
+            || $this->statusFilter !== ''
+            || $this->categoryFilter !== ''
+            || $this->stockFilter !== ''
+            || $this->featuredFilter !== '';
+    }
+
+    public function updatedPage(): void
+    {
+        $this->syncSelectAllState();
+    }
+
+    protected function authorizeBulkAction(): void
+    {
+        if (! auth()->check()) {
+            abort(403, 'Unauthorized. Please log in.');
+        }
+
+        $user = auth()->user();
+
+        if (! $user->canAccessAdmin()) {
+            abort(403, 'Unauthorized. Access restricted to store administrators.');
+        }
+
+        if (method_exists($user, 'hasPermissionTo') && $user->roles()->exists()) {
+            if (! $user->hasAnyRole(['Super Administrator', 'Store Administrator', 'Catalogue Manager']) && ! $user->can('products')) {
+                abort(403, 'Unauthorized. You do not have permission to manage products.');
+            }
+        }
+    }
+
+    protected function getValidatedSelectedIds(): array
+    {
+        $this->authorizeBulkAction();
+
+        if (empty($this->selected)) {
+            $this->errorMessage = 'No products were selected for this bulk action.';
+            session()->flash('error', $this->errorMessage);
+
+            return [];
+        }
+
+        $ids = array_values(array_filter(array_map('intval', $this->selected), fn ($id) => $id > 0));
+
+        if (empty($ids)) {
+            $this->errorMessage = 'The selected product IDs are invalid.';
+            session()->flash('error', $this->errorMessage);
+            $this->clearSelection();
+
+            return [];
+        }
+
+        return $ids;
+    }
+
+    public function bulkActivate(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $count = Product::whereIn('id', $ids)->update(['is_active' => true]);
+        ProductVariant::whereIn('product_id', $ids)->update(['is_active' => true]);
+
+        $message = "{$count} ".Str::plural('product', $count).' activated successfully.';
+        $this->errorMessage = null;
+        $this->successMessage = $message;
+        session()->flash('success', $message);
+
+        $this->clearSelection();
+    }
+
+    public function bulkDeactivate(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $count = Product::whereIn('id', $ids)->update(['is_active' => false]);
+        ProductVariant::whereIn('product_id', $ids)->update(['is_active' => false]);
+
+        $message = "{$count} ".Str::plural('product', $count).' deactivated successfully.';
+        $this->errorMessage = null;
+        $this->successMessage = $message;
+        session()->flash('success', $message);
+
+        $this->clearSelection();
+    }
+
+    public function openBulkCategoryModal(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $this->bulkCategoryIds = [];
+        $this->bulkCategoryMode = 'append';
+        $this->bulkStatusMode = 'keep';
+        $this->resetValidation(['bulkCategoryIds', 'bulkCategoryMode', 'bulkStatusMode']);
+        $this->showBulkCategoryModal = true;
+    }
+
+    public function closeBulkCategoryModal(): void
+    {
+        $this->showBulkCategoryModal = false;
+        $this->bulkCategoryIds = [];
+        $this->bulkCategoryMode = 'append';
+        $this->bulkStatusMode = 'keep';
+        $this->resetValidation(['bulkCategoryIds', 'bulkCategoryMode', 'bulkStatusMode']);
+    }
+
+    public function bulkAssignCategory(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            $this->closeBulkCategoryModal();
+
+            return;
+        }
+
+        $this->validate([
+            'bulkCategoryIds' => ['required', 'array', 'min:1'],
+            'bulkCategoryIds.*' => ['integer', 'exists:categories,id'],
+            'bulkCategoryMode' => ['required', 'string', Rule::in(['append', 'replace'])],
+            'bulkStatusMode' => ['required', 'string', Rule::in(['keep', 'active', 'inactive'])],
+        ], [
+            'bulkCategoryIds.required' => 'Please select at least one category to assign.',
+            'bulkCategoryIds.min' => 'Please select at least one category to assign.',
+        ]);
+
+        $categoryIds = array_values(array_map('intval', $this->bulkCategoryIds));
+
+        DB::transaction(function () use ($ids, $categoryIds) {
+            $products = Product::whereIn('id', $ids)->get();
+
+            foreach ($products as $product) {
+                if ($this->bulkCategoryMode === 'replace') {
+                    $product->categories()->sync($categoryIds);
+                } else {
+                    $product->categories()->syncWithoutDetaching($categoryIds);
+                }
+            }
+
+            if ($this->bulkStatusMode === 'active') {
+                Product::whereIn('id', $ids)->update(['is_active' => true]);
+                ProductVariant::whereIn('product_id', $ids)->update(['is_active' => true]);
+            } elseif ($this->bulkStatusMode === 'inactive') {
+                Product::whereIn('id', $ids)->update(['is_active' => false]);
+                ProductVariant::whereIn('product_id', $ids)->update(['is_active' => false]);
+            }
+        });
+
+        $productCount = count($ids);
+        $catCount = count($categoryIds);
+        $statusSuffix = match ($this->bulkStatusMode) {
+            'active' => ' and set to Active',
+            'inactive' => ' and set to Inactive',
+            default => '',
+        };
+
+        $message = "Assigned {$catCount} ".Str::plural('category', $catCount)." to {$productCount} ".Str::plural('product', $productCount)."{$statusSuffix} successfully.";
+
+        $this->errorMessage = null;
+        $this->successMessage = $message;
+        session()->flash('success', $message);
+
+        $this->closeBulkCategoryModal();
+        $this->clearSelection();
+    }
+
+    public function confirmBulkDelete(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            return;
+        }
+
+        $this->showBulkDeleteModal = true;
+    }
+
+    public function closeBulkDeleteModal(): void
+    {
+        $this->showBulkDeleteModal = false;
+    }
+
+    public function bulkDelete(): void
+    {
+        $ids = $this->getValidatedSelectedIds();
+        if (empty($ids)) {
+            $this->closeBulkDeleteModal();
+
+            return;
+        }
+
+        DB::transaction(function () use ($ids) {
+            $products = Product::with(['images', 'variants.inventory'])->whereIn('id', $ids)->get();
+
+            $protectedNames = [];
+            $deletableProducts = [];
+
+            foreach ($products as $product) {
+                $hasActiveHold = false;
+                foreach ($product->variants as $variant) {
+                    if ($variant->inventory && (int) $variant->inventory->reserved_quantity > 0) {
+                        $hasActiveHold = true;
+                        break;
+                    }
+                }
+
+                if ($hasActiveHold) {
+                    $protectedNames[] = $product->name;
+                } else {
+                    $deletableProducts[] = $product;
+                }
+            }
+
+            if (empty($deletableProducts)) {
+                $names = implode(', ', $protectedNames);
+                $this->errorMessage = "Cannot delete selected products ({$names}) because they have active order reservations in progress.";
+                session()->flash('error', $this->errorMessage);
+
+                return;
+            }
+
+            $deletedCount = 0;
+            foreach ($deletableProducts as $product) {
+                $product->categories()->detach();
+
+                foreach ($product->images as $image) {
+                    if (Storage::disk('public')->exists($image->path)) {
+                        Storage::disk('public')->delete($image->path);
+                    }
+                }
+
+                $product->delete();
+                $deletedCount++;
+            }
+
+            if (! empty($protectedNames)) {
+                $skippedNames = implode(', ', $protectedNames);
+                $message = "{$deletedCount} ".Str::plural('product', $deletedCount)." deleted successfully. Skipped ({$skippedNames}) due to active unfulfilled orders.";
+            } else {
+                $message = "{$deletedCount} ".Str::plural('product', $deletedCount).' deleted successfully.';
+            }
+
+            $this->errorMessage = null;
+            $this->successMessage = $message;
+            session()->flash('success', $message);
+        });
+
+        $this->closeBulkDeleteModal();
+        $this->clearSelection();
     }
 
     public function openCreate(): void
@@ -889,19 +1295,12 @@ class Index extends Component
     public function dismissAlert(): void
     {
         $this->successMessage = null;
+        $this->errorMessage = null;
     }
 
     public function export(): StreamedResponse
     {
-        $products = Product::query()
-            ->when($this->search, function ($query) {
-                $query->where(function ($query) {
-                    $query
-                        ->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('sku', 'like', '%'.$this->search.'%')
-                        ->orWhere('slug', 'like', '%'.$this->search.'%');
-                });
-            })
+        $products = $this->buildFilteredProductsQuery()
             ->with(['categories', 'variants.inventory'])
             ->latest()
             ->get();

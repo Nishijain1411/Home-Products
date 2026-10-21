@@ -23,12 +23,17 @@ class DiscountService
     }
 
     /**
-     * Validate a coupon code against current subtotal and customer.
+     * Validate a coupon code against current subtotal, customer, and cart items.
      *
      * @return array{valid: bool, discount: ?Discount, discount_amount: float, message: ?string}
      */
-    public function validateCode(string $code, float $subtotal, ?int $customerId = null, ?string $customerEmail = null): array
-    {
+    public function validateCode(
+        string $code,
+        float $subtotal,
+        ?int $customerId = null,
+        ?string $customerEmail = null,
+        ?array $cartItems = null
+    ): array {
         $code = trim($code);
 
         if ($code === '') {
@@ -51,7 +56,7 @@ class DiscountService
             ];
         }
 
-        $eligibility = $discount->checkEligibility($subtotal, $customerId, $customerEmail);
+        $eligibility = $discount->checkEligibility($subtotal, $customerId, $customerEmail, $cartItems);
 
         if (! $eligibility['eligible']) {
             return [
@@ -62,7 +67,7 @@ class DiscountService
             ];
         }
 
-        $discountAmount = $discount->calculateDiscountAmount($subtotal);
+        $discountAmount = $discount->calculateDiscountAmount($subtotal, $cartItems);
 
         return [
             'valid' => true,
@@ -80,14 +85,15 @@ class DiscountService
         Order $order,
         float $discountAmount,
         ?int $customerId = null,
-        ?string $customerEmail = null
+        ?string $customerEmail = null,
+        ?array $cartItems = null
     ): DiscountRedemption {
         // Lock discount record to prevent race conditions during concurrent checkouts
         $lockedDiscount = Discount::where('id', $discount->id)
             ->lockForUpdate()
             ->firstOrFail();
 
-        $eligibility = $lockedDiscount->checkEligibility((float) $order->subtotal, $customerId, $customerEmail);
+        $eligibility = $lockedDiscount->checkEligibility((float) $order->subtotal, $customerId, $customerEmail, $cartItems);
 
         if (! $eligibility['eligible']) {
             throw new RuntimeException(

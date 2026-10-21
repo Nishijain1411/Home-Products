@@ -100,7 +100,8 @@ class Cart extends Component
             $code,
             $this->subtotal,
             Auth::id(),
-            Auth::user()?->email
+            Auth::user()?->email,
+            $this->cart
         );
 
         if (! $validation['valid']) {
@@ -138,7 +139,8 @@ class Cart extends Component
                 $this->appliedCoupon['code'],
                 $this->subtotal,
                 Auth::id(),
-                Auth::user()?->email
+                Auth::user()?->email,
+                $this->cart
             );
 
             if ($validation['valid']) {
